@@ -39,6 +39,30 @@ const card = await client.accessCards.provision({
   expirationDate: "2025-04-30T22:46:25.601Z",
   employeePhoto: "[image_in_base64_encoded_format]"
 });
+
+// Card object contains details like:
+console.log(card.id);        // The card's unique ID
+console.log(card.url);       // Installation URL for the card
+console.log(card.state);     // Current state (active, suspended, etc.)
+console.log(card.fullName);  // Employee name
+```
+
+You can also use the `issue()` method as an alias for `provision()`.
+
+#### List cards for a template
+
+```javascript
+// Get all cards for a template
+const cards = await client.accessCards.list("template-id");
+
+// Filter by state
+const activeCards = await client.accessCards.list("template-id", "active");
+// Possible states: "active", "suspended", "unlink", "deleted"
+
+// Access card properties
+cards.forEach(card => {
+  console.log(`${card.fullName} (${card.id}): ${card.state}`);
+});
 ```
 
 #### Update a card
@@ -69,6 +93,11 @@ await client.accessCards.resume({
 
 // Unlink a card
 await client.accessCards.unlink({
+  cardId: "0xc4rd1d"
+});
+
+// Delete a card
+await client.accessCards.delete({
   cardId: "0xc4rd1d"
 });
 ```
@@ -102,6 +131,13 @@ const template = await client.console.createTemplate({
     termsAndConditionsUrl: "https://yourcompany.com/terms"
   }
 });
+
+// Template object contains details like:
+console.log(template.id);             // Template ID
+console.log(template.name);           // Template name
+console.log(template.platform);       // Platform (apple, etc.)
+console.log(template.issuedKeysCount); // Number of keys issued
+console.log(template.activeKeysCount); // Number of active keys
 ```
 
 #### Update a template
@@ -134,14 +170,19 @@ const template = await client.console.readTemplate({
 #### Get event logs
 
 ```javascript
-const events = await client.console.eventLog({
+const events = await client.console.getEventLogs({
   cardTemplateId: "0xd3adb00b5",
   filters: {
     device: "mobile", // "mobile" or "watch"
     startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
     endDate: new Date().toISOString(),
-    eventType: "install"
+    eventType: "install" // "install", "activate", etc.
   }
+});
+
+// You can also use the eventLog() method as an alias
+const events = await client.console.eventLog({
+  // Same parameters as above
 });
 ```
 
@@ -157,23 +198,29 @@ const client = new AccessGrid(accountId, secretKey, {
 
 ## Error Handling
 
-The SDK throws errors for various scenarios including:
-- Missing required credentials
-- API request failures
-- Invalid parameters
-- Server errors
-
-Example error handling:
+The SDK provides specific error classes:
 
 ```javascript
+import { AccessGridError, AuthenticationError } from 'accessgrid';
+
 try {
   const card = await client.accessCards.provision({
     // ... parameters
   });
 } catch (error) {
-  console.error('Failed to provision card:', error.message);
+  if (error instanceof AuthenticationError) {
+    console.error('Authentication failed. Check your credentials.');
+  } else if (error instanceof AccessGridError) {
+    console.error('API error:', error.message);
+  } else {
+    console.error('Unexpected error:', error.message);
+  }
 }
 ```
+
+Error types:
+- `AccessGridError`: Base error class for all API errors
+- `AuthenticationError`: Thrown when authentication fails (e.g., invalid credentials)
 
 ## Requirements
 
