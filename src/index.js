@@ -184,21 +184,52 @@ class AccessCardsApi extends BaseApi {
   }
 
   async provision(params) {
+    // Required parameters validation
+    if (!params.cardTemplateId) throw new AccessGridError('card_template_id is required');
+    if (!params.fullName) throw new AccessGridError('full_name is required');
+    if (!params.startDate) throw new AccessGridError('start_date is required');
+    if (!params.expirationDate) throw new AccessGridError('expiration_date is required');
+    
+    // Start with required parameters
+    const requestBody = {
+      card_template_id: params.cardTemplateId,
+      full_name: params.fullName,
+      start_date: params.startDate,
+      expiration_date: params.expirationDate,
+    };
+    
+    // Map camelCase JS params to snake_case API params
+    const paramMapping = {
+      employeeId: 'employee_id',
+      tagId: 'tag_id',
+      phoneNumber: 'phone_number',
+      employeePhoto: 'employee_photo',
+      allowOnMultipleDevices: 'allow_on_multiple_devices',
+      memberId: 'member_id',
+      membershipStatus: 'membership_status',
+      isPassReadyToTransact: 'is_pass_ready_to_transact',
+      tileData: 'tile_data',
+      reservations: 'reservations',
+      siteCode: 'site_code',
+      cardNumber: 'card_number',
+      fileData: 'file_data',
+      email: 'email',
+      classification: 'classification'
+    };
+    
+    // Add any params that exist to the request body
+    Object.keys(params).forEach(key => {
+      if (key !== 'cardTemplateId' && key !== 'fullName' && 
+          key !== 'startDate' && key !== 'expirationDate' && 
+          params[key] !== undefined && params[key] !== null) {
+        const apiKey = paramMapping[key] || key;
+        requestBody[apiKey] = params[key];
+      }
+    });
+    
     const response = await this.request('/v1/key-cards', {
       method: 'POST',
-      body: {
-        card_template_id: params.cardTemplateId,
-        employee_id: params.employeeId,
-        tag_id: params.tagId,
-        allow_on_multiple_devices: params.allowOnMultipleDevices,
-        full_name: params.fullName,
-        email: params.email,
-        phone_number: params.phoneNumber,
-        classification: params.classification,
-        start_date: params.startDate,
-        expiration_date: params.expirationDate,
-        employee_photo: params.employeePhoto
-      }
+      body: requestBody
     });
     return new AccessCard(response);
   }
@@ -209,15 +240,38 @@ class AccessCardsApi extends BaseApi {
   }
 
   async update(params) {
+    // Required parameter validation
+    if (!params.cardId) throw new AccessGridError('card_id is required');
+    
+    // Create empty request body
+    const requestBody = {};
+    
+    // Map camelCase JS params to snake_case API params
+    const paramMapping = {
+      employeeId: 'employee_id',
+      fullName: 'full_name',
+      classification: 'classification',
+      expirationDate: 'expiration_date',
+      employeePhoto: 'employee_photo',
+      // Hotel-specific parameters
+      memberId: 'member_id',
+      membershipStatus: 'membership_status',
+      isPassReadyToTransact: 'is_pass_ready_to_transact',
+      tileData: 'tile_data',
+      reservations: 'reservations'
+    };
+    
+    // Add any params that exist to the request body
+    Object.keys(params).forEach(key => {
+      if (key !== 'cardId' && params[key] !== undefined && params[key] !== null) {
+        const apiKey = paramMapping[key] || key;
+        requestBody[apiKey] = params[key];
+      }
+    });
+    
     const response = await this.request(`/v1/key-cards/${params.cardId}`, {
       method: 'PATCH',
-      body: {
-        employee_id: params.employeeId,
-        full_name: params.fullName,
-        classification: params.classification,
-        expiration_date: params.expirationDate,
-        employee_photo: params.employeePhoto
-      }
+      body: requestBody
     });
     return new AccessCard(response);
   }

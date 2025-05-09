@@ -26,11 +26,12 @@ const client = new AccessGrid(accountId, secretKey);
 #### Provision a new card
 
 ```javascript
+// employee badge
 const card = await client.accessCards.provision({
   cardTemplateId: "0xd3adb00b5",
   employeeId: "123456789",
-  tagId: "DDEADB33FB00B5",
-  allowOnMultipleDevices: true,
+  cardNumber: "42069",
+  siteCode: "55",
   fullName: "Employee name",
   email: "employee@yourwebsite.com",
   phoneNumber: "+19547212241",
@@ -38,6 +39,44 @@ const card = await client.accessCards.provision({
   startDate: "2025-01-31T22:46:25.601Z",
   expirationDate: "2025-04-30T22:46:25.601Z",
   employeePhoto: "[image_in_base64_encoded_format]"
+});
+
+// Card object contains details like:
+console.log(card.id);        // The card's unique ID
+console.log(card.url);       // Installation URL for the card
+console.log(card.state);     // Current state (active, suspended, etc.)
+console.log(card.fullName);  // Employee name
+
+// hotel
+const card = await client.accessCards.provision({
+  cardTemplateId: "0xd3adb00b5",
+  cardNumber: "1",
+  fileData: "0000000000000000000000000000000000000000000000000000000000000420",
+  fullName: "Employee name",
+  email: "employee@yourwebsite.com",
+  phoneNumber: "+19547212241",
+  memberId: "MEM123",
+  membershipStatus: "Guest",
+  isPassReadyToTransact: true,
+  tileData: {
+    checkInAvailableWindowStartDateTime: "2025-05-05T23:46:25.601Z",
+    checkInAvailableWindowEndDateTime: "2025-05-10T23:46:25.601Z",
+    checkInURL: "https://checkin.com",
+    isCheckedIn: false,
+    numberOfRoomsReserved: 1,
+    roomNumbers: ["101"]
+  },
+  reservations: [{
+    isCheckedIn: false,
+    numberOfRoomsReserved: 1,
+    roomNumbers: ["101"],
+    propertyLocation: "Calle Retama 22, Zaragoza, 50720, Spain",
+    propertyName: "Omnitec Hotel",
+    reservationStartDateTime: "2025-05-10T12:00:00.000Z",
+    reservationEndDateTime: "2025-05-12T12:00:00.000Z",
+    reservationNumber: "123"
+  }],
+  expirationDate: "2025-05-12T14:00:00.000Z"
 });
 
 // Card object contains details like:
