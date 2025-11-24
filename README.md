@@ -88,6 +88,24 @@ console.log(card.fullName);  // Employee name
 
 You can also use the `issue()` method as an alias for `provision()`.
 
+#### Get a card
+
+```javascript
+const card = await client.accessCards.get({
+  cardId: "0xc4rd1d"
+});
+
+console.log('Card ID:', card.id);
+console.log('State:', card.state);
+console.log('Full Name:', card.fullName);
+console.log('Install URL:', card.installUrl);
+console.log('Expiration Date:', card.expirationDate);
+console.log('Card Number:', card.cardNumber);
+console.log('Site Code:', card.siteCode);
+console.log('Devices:', card.devices);
+console.log('Metadata:', card.metadata);
+```
+
 #### List cards for a template
 
 ```javascript

@@ -18,9 +18,18 @@ class AccessCard {
   constructor(data = {}) {
     this.id = data.id;
     this.url = data.install_url;
+    this.installUrl = data.install_url;
+    this.details = data.details;
     this.state = data.state;
     this.fullName = data.full_name;
     this.expirationDate = data.expiration_date;
+    this.cardTemplateId = data.card_template_id;
+    this.cardNumber = data.card_number;
+    this.siteCode = data.site_code;
+    this.fileData = data.file_data;
+    this.directInstallUrl = data.direct_install_url;
+    this.devices = data.devices || [];
+    this.metadata = data.metadata || {};
   }
 
   toString() {
@@ -53,7 +62,7 @@ class BaseApi {
     this.accountId = accountId;
     this.secretKey = secretKey;
     this.baseUrl = baseUrl.replace(/\/$/, ''); // Remove trailing slash if present
-    this.version = '1.1.0'; // Should come from package.json
+    this.version = '1.2.0'; // Should come from package.json
   }
 
   async request(path, options = {}) {
@@ -237,6 +246,14 @@ class AccessCardsApi extends BaseApi {
   // Alias for provision for backwards compatibility
   async issue(params) {
     return this.provision(params);
+  }
+
+  async get(params) {
+    // Required parameter validation
+    if (!params.cardId) throw new AccessGridError('card_id is required');
+
+    const response = await this.request(`/v1/key-cards/${params.cardId}`);
+    return new AccessCard(response);
   }
 
   async update(params) {
