@@ -88,7 +88,6 @@ describe('AccessGrid SDK', () => {
         cardTemplateId: '0xd3adb00b5',
         employeeId: '123456789',
         tagId: 'DDEADB33FB00B5',
-        allowOnMultipleDevices: true,
         fullName: 'Employee name',
         email: 'employee@yourwebsite.com',
         phoneNumber: '+19547212241',
