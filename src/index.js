@@ -37,6 +37,22 @@ class AccessCard {
   }
 }
 
+// UnifiedAccessPass model class (for template pairs - Apple + Android)
+class UnifiedAccessPass {
+  constructor(data = {}) {
+    this.id = data.id;
+    this.url = data.install_url;
+    this.installUrl = data.install_url;
+    this.state = data.state;
+    this.status = data.status;
+    this.details = (data.details || []).map(card => new AccessCard(card));
+  }
+
+  toString() {
+    return `UnifiedAccessPass(id='${this.id}', state='${this.state}', cards=${this.details.length})`;
+  }
+}
+
 // Template model class
 class Template {
   constructor(data = {}) {
@@ -62,7 +78,7 @@ class BaseApi {
     this.accountId = accountId;
     this.secretKey = secretKey;
     this.baseUrl = baseUrl.replace(/\/$/, ''); // Remove trailing slash if present
-    this.version = '1.2.0'; // Should come from package.json
+    this.version = '1.3.0'; // Should come from package.json
   }
 
   async request(path, options = {}) {
@@ -240,6 +256,11 @@ class AccessCardsApi extends BaseApi {
       method: 'POST',
       body: requestBody
     });
+
+    // Check if response has 'details' array (template pair response)
+    if (response.details && Array.isArray(response.details)) {
+      return new UnifiedAccessPass(response);
+    }
     return new AccessCard(response);
   }
 
@@ -417,6 +438,7 @@ export {
   AccessGridError,
   AuthenticationError,
   AccessCard,
+  UnifiedAccessPass,
   Template
 };
 
