@@ -13,14 +13,21 @@ class AuthenticationError extends AccessGridError {
   }
 }
 
-// AccessCard model class
-class AccessCard {
+// Abstract base class for access passes
+class Union {
   constructor(data = {}) {
     this.id = data.id;
     this.url = data.install_url;
     this.installUrl = data.install_url;
-    this.details = data.details;
     this.state = data.state;
+  }
+}
+
+// AccessCard model class
+class AccessCard extends Union {
+  constructor(data = {}) {
+    super(data);
+    this.details = data.details;
     this.fullName = data.full_name;
     this.expirationDate = data.expiration_date;
     this.cardTemplateId = data.card_template_id;
@@ -38,12 +45,9 @@ class AccessCard {
 }
 
 // UnifiedAccessPass model class (for template pairs - Apple + Android)
-class UnifiedAccessPass {
+class UnifiedAccessPass extends Union {
   constructor(data = {}) {
-    this.id = data.id;
-    this.url = data.install_url;
-    this.installUrl = data.install_url;
-    this.state = data.state;
+    super(data);
     this.status = data.status;
     this.details = (data.details || []).map(card => new AccessCard(card));
   }
@@ -274,6 +278,11 @@ class AccessCardsApi extends BaseApi {
     if (!params.cardId) throw new AccessGridError('card_id is required');
 
     const response = await this.request(`/v1/key-cards/${params.cardId}`);
+
+    // Check if response has 'details' array (template pair response)
+    if (response.details && Array.isArray(response.details)) {
+      return new UnifiedAccessPass(response);
+    }
     return new AccessCard(response);
   }
 
@@ -437,6 +446,7 @@ export {
   AccessGrid,
   AccessGridError,
   AuthenticationError,
+  Union,
   AccessCard,
   UnifiedAccessPass,
   Template
