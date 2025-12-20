@@ -106,14 +106,14 @@ console.log('Devices:', card.devices);
 console.log('Metadata:', card.metadata);
 ```
 
-#### List cards for a template
+#### List cards for a card template
 
 ```javascript
-// Get all cards for a template
-const cards = await client.accessCards.list("template-id");
+// Get all cards for a card template
+const cards = await client.accessCards.list("card-template-id");
 
 // Filter by state
-const activeCards = await client.accessCards.list("template-id", "active");
+const activeCards = await client.accessCards.list("card-template-id", "active");
 // Possible states: "active", "suspended", "unlink", "deleted"
 
 // Access card properties
