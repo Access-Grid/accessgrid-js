@@ -322,8 +322,8 @@ class AccessCardsApi extends BaseApi {
     return new AccessCard(response);
   }
 
-  async list(templateId, state = null) {
-    const params = new URLSearchParams({ template_id: templateId });
+  async list(cardTemplateId, state = null) {
+    const params = new URLSearchParams({ card_template_id: cardTemplateId });
     if (state) {
       params.append('state', state);
     }
