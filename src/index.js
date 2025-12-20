@@ -18,7 +18,6 @@ class Union {
   constructor(data = {}) {
     this.id = data.id;
     this.url = data.install_url;
-    this.installUrl = data.install_url;
     this.state = data.state;
   }
 }
