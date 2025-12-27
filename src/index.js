@@ -278,10 +278,9 @@ class AccessCardsApi extends BaseApi {
 
     const response = await this.request(`/v1/key-cards/${params.cardId}`);
 
-    // Check if response has 'details' array (template pair response)
-    if (response.details && Array.isArray(response.details)) {
-      return new UnifiedAccessPass(response);
-    }
+    // Note: get() always returns AccessCard for individual cards.
+    // UnifiedAccessPass is only returned from provision()/issue() methods
+    // when provisioning to a template pair.
     return new AccessCard(response);
   }
 
