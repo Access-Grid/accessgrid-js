@@ -13,14 +13,20 @@ class AuthenticationError extends AccessGridError {
   }
 }
 
-// AccessCard model class
-class AccessCard {
+// Abstract base class for access passes
+class Union {
   constructor(data = {}) {
     this.id = data.id;
     this.url = data.install_url;
-    this.installUrl = data.install_url;
-    this.details = data.details;
     this.state = data.state;
+  }
+}
+
+// AccessCard model class
+class AccessCard extends Union {
+  constructor(data = {}) {
+    super(data);
+    this.details = data.details;
     this.fullName = data.full_name;
     this.expirationDate = data.expiration_date;
     this.cardTemplateId = data.card_template_id;
@@ -34,6 +40,19 @@ class AccessCard {
 
   toString() {
     return `AccessCard(name='${this.fullName}', id='${this.id}', state='${this.state}')`;
+  }
+}
+
+// UnifiedAccessPass model class (for template pairs - Apple + Android)
+class UnifiedAccessPass extends Union {
+  constructor(data = {}) {
+    super(data);
+    this.status = data.status;
+    this.details = (data.details || []).map(card => new AccessCard(card));
+  }
+
+  toString() {
+    return `UnifiedAccessPass(id='${this.id}', state='${this.state}', cards=${this.details.length})`;
   }
 }
 
@@ -62,7 +81,7 @@ class BaseApi {
     this.accountId = accountId;
     this.secretKey = secretKey;
     this.baseUrl = baseUrl.replace(/\/$/, ''); // Remove trailing slash if present
-    this.version = '1.2.0'; // Should come from package.json
+    this.version = '1.3.0'; // Should come from package.json
   }
 
   async request(path, options = {}) {
@@ -240,6 +259,11 @@ class AccessCardsApi extends BaseApi {
       method: 'POST',
       body: requestBody
     });
+
+    // Check if response has 'details' array (template pair response)
+    if (response.details && Array.isArray(response.details)) {
+      return new UnifiedAccessPass(response);
+    }
     return new AccessCard(response);
   }
 
@@ -253,6 +277,10 @@ class AccessCardsApi extends BaseApi {
     if (!params.cardId) throw new AccessGridError('card_id is required');
 
     const response = await this.request(`/v1/key-cards/${params.cardId}`);
+
+    // Note: get() always returns AccessCard for individual cards.
+    // UnifiedAccessPass is only returned from provision()/issue() methods
+    // when provisioning to a template pair.
     return new AccessCard(response);
   }
 
@@ -293,8 +321,8 @@ class AccessCardsApi extends BaseApi {
     return new AccessCard(response);
   }
 
-  async list(templateId, state = null) {
-    const params = new URLSearchParams({ template_id: templateId });
+  async list(cardTemplateId, state = null) {
+    const params = new URLSearchParams({ card_template_id: cardTemplateId });
     if (state) {
       params.append('state', state);
     }
@@ -416,7 +444,9 @@ export {
   AccessGrid,
   AccessGridError,
   AuthenticationError,
+  Union,
   AccessCard,
+  UnifiedAccessPass,
   Template
 };
 
