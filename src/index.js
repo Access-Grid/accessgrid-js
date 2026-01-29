@@ -113,8 +113,7 @@ class BaseApi {
       if ((method === 'POST' && !options.body) || method === 'GET') {
         // For these requests, use {"id": "card_id"} as the payload for signature generation
         if (resourceId) {
-          payload = JSON.stringify({ id: resourceId });
-          sigPayload = payload;
+          sigPayload = JSON.stringify({ id: resourceId });
         } else {
           payload = '{}';
           sigPayload = payload;
