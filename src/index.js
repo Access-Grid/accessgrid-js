@@ -56,6 +56,26 @@ class Template {
   }
 }
 
+// PassTemplatePair model class
+class PassTemplatePair {
+  constructor(data = {}) {
+    this.id = data.id;
+    this.name = data.name;
+    this.createdAt = data.created_at;
+    this.androidTemplate = data.android_template ? new TemplateInfo(data.android_template) : null;
+    this.iosTemplate = data.ios_template ? new TemplateInfo(data.ios_template) : null;
+  }
+}
+
+// TemplateInfo model class
+class TemplateInfo {
+  constructor(data = {}) {
+    this.id = data.id;
+    this.name = data.name;
+    this.platform = data.platform;
+  }
+}
+
 // Base API wrapper to handle common functionality
 class BaseApi {
   constructor(accountId, secretKey, baseUrl = 'https://api.accessgrid.com') {
@@ -93,8 +113,7 @@ class BaseApi {
       if ((method === 'POST' && !options.body) || method === 'GET') {
         // For these requests, use {"id": "card_id"} as the payload for signature generation
         if (resourceId) {
-          payload = JSON.stringify({ id: resourceId });
-          sigPayload = payload;
+          sigPayload = JSON.stringify({ id: resourceId });
         } else {
           payload = '{}';
           sigPayload = payload;
@@ -396,6 +415,24 @@ class ConsoleApi extends BaseApi {
   async eventLog(params) {
     return this.getEventLogs(params);
   }
+
+  async listPassTemplatePairs(params = {}) {
+    const queryParams = new URLSearchParams();
+    if (params.page) queryParams.append('page', params.page);
+    if (params.perPage) queryParams.append('per_page', params.perPage);
+
+    const queryString = queryParams.toString();
+    const path = queryString ? `/v1/console/pass-template-pairs?${queryString}` : '/v1/console/pass-template-pairs';
+
+    const response = await this.request(path);
+
+    if (response.pass_template_pairs) {
+      response.passTemplatePairs = response.pass_template_pairs.map(pair => new PassTemplatePair(pair));
+      delete response.pass_template_pairs;
+    }
+
+    return response;
+  }
 }
 
 // Main AccessGrid class
@@ -417,7 +454,9 @@ export {
   AccessGridError,
   AuthenticationError,
   AccessCard,
-  Template
+  Template,
+  PassTemplatePair,
+  TemplateInfo
 };
 
 // Default export
