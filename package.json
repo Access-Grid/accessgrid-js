@@ -30,12 +30,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yourusername/accessgrid.git"
+    "url": "git+https://github.com/access-grid/accessgrid-js.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/accessgrid/issues"
+    "url": "https://github.com/access-grid/accessgrid-js/issues"
   },
-  "homepage": "https://github.com/yourusername/accessgrid#readme",
+  "homepage": "https://github.com/access-grid/accessgrid-js#readme",
   "devDependencies": {
     "@babel/core": "^7.24.0",
     "@babel/preset-env": "^7.24.0",
