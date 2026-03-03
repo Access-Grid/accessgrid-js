@@ -332,6 +332,75 @@ describe('AccessGrid SDK', () => {
       });
     });
 
+    describe('updateTemplate', () => {
+      const mockTemplateId = '0xt3mpl4t3';
+      const mockUpdateParams = {
+        cardTemplateId: mockTemplateId,
+        name: 'Updated Badge',
+        allowOnMultipleDevices: false,
+        watchCount: 1,
+        iphoneCount: 2,
+        supportInfo: {
+          supportUrl: 'https://help.example.com',
+          supportPhoneNumber: '+1-555-999-0000',
+          supportEmail: 'help@example.com',
+          privacyPolicyUrl: 'https://example.com/privacy',
+          termsAndConditionsUrl: 'https://example.com/terms'
+        }
+      };
+
+      test('should make correct API call with PUT', async () => {
+        global.fetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ id: mockTemplateId, name: 'Updated Badge' })
+        });
+
+        await client.console.updateTemplate(mockUpdateParams);
+
+        expect(fetch).toHaveBeenCalledWith(
+          expect.stringContaining(`/v1/console/card-templates/${mockTemplateId}`),
+          expect.objectContaining({
+            method: 'PUT',
+            headers: expect.objectContaining({
+              'Content-Type': 'application/json',
+              'X-ACCT-ID': mockAccountId
+            })
+          })
+        );
+      });
+
+      test('should map camelCase params to snake_case body', async () => {
+        global.fetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ id: mockTemplateId })
+        });
+
+        await client.console.updateTemplate(mockUpdateParams);
+
+        const callBody = JSON.parse(fetch.mock.calls[0][1].body);
+        expect(callBody.name).toBe('Updated Badge');
+        expect(callBody.allow_on_multiple_devices).toBe(false);
+        expect(callBody.watch_count).toBe(1);
+        expect(callBody.iphone_count).toBe(2);
+        expect(callBody.support_url).toBe('https://help.example.com');
+        expect(callBody.support_phone_number).toBe('+1-555-999-0000');
+        expect(callBody.support_email).toBe('help@example.com');
+        expect(callBody.privacy_policy_url).toBe('https://example.com/privacy');
+        expect(callBody.terms_and_conditions_url).toBe('https://example.com/terms');
+      });
+
+      test('should return a Template instance', async () => {
+        global.fetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ id: mockTemplateId, name: 'Updated Badge' })
+        });
+
+        const result = await client.console.updateTemplate(mockUpdateParams);
+        expect(result).toBeInstanceOf(Template);
+        expect(result.id).toBe(mockTemplateId);
+      });
+    });
+
     describe('readTemplate', () => {
       const mockTemplateId = '0xd3adb00b5';
 
