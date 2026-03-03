@@ -82,6 +82,23 @@ describe('AccessGrid SDK', () => {
         .toThrow(AuthenticationError);
     });
 
+    test('should throw AccessGridError with message on 402', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 402,
+        json: () => Promise.resolve({ message: 'Insufficient account balance' })
+      });
+
+      await expect(client.accessCards.provision({
+        cardTemplateId: '123',
+        fullName: 'Test User',
+        startDate: '2025-01-01T00:00:00Z',
+        expirationDate: '2025-12-31T00:00:00Z'
+      }))
+        .rejects
+        .toThrow('Insufficient account balance');
+    });
+
     test('should throw AccessGridError on other errors', async () => {
       global.fetch.mockResolvedValueOnce({
         ok: false,
@@ -140,6 +157,20 @@ describe('AccessGrid SDK', () => {
         const result = await client.accessCards.provision(mockProvisionParams);
         expect(result).toBeInstanceOf(AccessCard);
         expect(result.id).toBe('mock-id');
+      });
+    });
+
+    describe('issue', () => {
+      test('issue is an alias for provision', async () => {
+        const spy = jest.spyOn(client.accessCards, 'provision');
+        const params = {
+          cardTemplateId: '123',
+          fullName: 'Test User',
+          startDate: '2025-01-01T00:00:00Z',
+          expirationDate: '2025-12-31T00:00:00Z'
+        };
+        await client.accessCards.issue(params);
+        expect(spy).toHaveBeenCalledWith(params);
       });
     });
 
@@ -636,6 +667,45 @@ describe('AccessGrid SDK', () => {
       expect(template.createdAt).toBe('2025-01-01');
       expect(template.issuedKeysCount).toBe(10);
       expect(template.activeKeysCount).toBe(8);
+    });
+
+    test('PassTemplatePair should have correct properties', () => {
+      const pair = new PassTemplatePair({
+        id: 'pair-1',
+        name: 'Badge Pair',
+        created_at: '2025-03-01T00:00:00Z',
+        ios_template: { id: 'ios-1', name: 'iOS Badge', platform: 'apple' },
+        android_template: { id: 'android-1', name: 'Android Badge', platform: 'google' }
+      });
+
+      expect(pair.id).toBe('pair-1');
+      expect(pair.name).toBe('Badge Pair');
+      expect(pair.createdAt).toBe('2025-03-01T00:00:00Z');
+      expect(pair.iosTemplate).toBeInstanceOf(TemplateInfo);
+      expect(pair.androidTemplate).toBeInstanceOf(TemplateInfo);
+    });
+
+    test('PassTemplatePair handles missing templates', () => {
+      const pair = new PassTemplatePair({
+        id: 'pair-2',
+        name: 'iOS Only',
+        created_at: '2025-03-01T00:00:00Z'
+      });
+
+      expect(pair.iosTemplate).toBeNull();
+      expect(pair.androidTemplate).toBeNull();
+    });
+
+    test('TemplateInfo should have correct properties', () => {
+      const info = new TemplateInfo({
+        id: 'tmpl-1',
+        name: 'Employee Badge',
+        platform: 'apple'
+      });
+
+      expect(info.id).toBe('tmpl-1');
+      expect(info.name).toBe('Employee Badge');
+      expect(info.platform).toBe('apple');
     });
   });
 });
