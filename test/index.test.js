@@ -143,6 +143,33 @@ describe('AccessGrid SDK', () => {
       });
     });
 
+    describe('get', () => {
+      const mockCardId = '0xc4rd1d';
+
+      test('should make correct API call', async () => {
+        await client.accessCards.get({ cardId: mockCardId });
+
+        expect(fetch).toHaveBeenCalledWith(
+          expect.stringContaining(`/v1/key-cards/${mockCardId}`),
+          expect.objectContaining({
+            method: 'GET'
+          })
+        );
+      });
+
+      test('should return an AccessCard instance', async () => {
+        const result = await client.accessCards.get({ cardId: mockCardId });
+        expect(result).toBeInstanceOf(AccessCard);
+        expect(result.id).toBe('mock-id');
+      });
+
+      test('should throw when cardId is missing', async () => {
+        await expect(client.accessCards.get({}))
+          .rejects
+          .toThrow('card_id is required');
+      });
+    });
+
     describe('update', () => {
       const mockUpdateParams = {
         cardId: '0xc4rd1d',
