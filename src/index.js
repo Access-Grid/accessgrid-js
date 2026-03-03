@@ -2,14 +2,14 @@
 class AccessGridError extends Error {
   constructor(message) {
     super(message);
-    this.name = 'AccessGridError';
+    this.name = "AccessGridError";
   }
 }
 
 class AuthenticationError extends AccessGridError {
-  constructor(message = 'Invalid credentials') {
+  constructor(message = "Invalid credentials") {
     super(message);
-    this.name = 'AuthenticationError';
+    this.name = "AuthenticationError";
   }
 }
 
@@ -62,8 +62,12 @@ class PassTemplatePair {
     this.id = data.id;
     this.name = data.name;
     this.createdAt = data.created_at;
-    this.androidTemplate = data.android_template ? new TemplateInfo(data.android_template) : null;
-    this.iosTemplate = data.ios_template ? new TemplateInfo(data.ios_template) : null;
+    this.androidTemplate = data.android_template
+      ? new TemplateInfo(data.android_template)
+      : null;
+    this.iosTemplate = data.ios_template
+      ? new TemplateInfo(data.ios_template)
+      : null;
   }
 }
 
@@ -78,26 +82,34 @@ class TemplateInfo {
 
 // Base API wrapper to handle common functionality
 class BaseApi {
-  constructor(accountId, secretKey, baseUrl = 'https://api.accessgrid.com') {
+  constructor(accountId, secretKey, baseUrl = "https://api.accessgrid.com") {
     this.accountId = accountId;
     this.secretKey = secretKey;
-    this.baseUrl = baseUrl.replace(/\/$/, ''); // Remove trailing slash if present
-    this.version = '1.2.0'; // Should come from package.json
+    this.baseUrl = baseUrl.replace(/\/$/, ""); // Remove trailing slash if present
+    this.version = "1.2.0"; // Should come from package.json
   }
 
   async request(path, options = {}) {
     const url = `${this.baseUrl}${path}`;
-    const method = options.method || 'GET';
-    
+    const method = options.method || "GET";
+
     try {
       // Extract resource ID from the endpoint if needed for signature
       let resourceId = null;
-      if (method === 'GET' || (method === 'POST' && (!options.body || Object.keys(options.body).length === 0))) {
+      if (
+        method === "GET" ||
+        (method === "POST" &&
+          (!options.body || Object.keys(options.body).length === 0))
+      ) {
         // Extract the ID from the endpoint - patterns like /resource/{id} or /resource/{id}/action
-        const parts = path.split('/').filter(part => part);
+        const parts = path.split("/").filter((part) => part);
         if (parts.length >= 2) {
           // For actions like unlink/suspend/resume, get the card ID (second to last part)
-          if (['suspend', 'resume', 'unlink', 'delete'].includes(parts[parts.length - 1])) {
+          if (
+            ["suspend", "resume", "unlink", "delete"].includes(
+              parts[parts.length - 1],
+            )
+          ) {
             resourceId = parts[parts.length - 2];
           } else {
             // Otherwise, the ID is typically the last part of the path
@@ -110,17 +122,17 @@ class BaseApi {
       let payload;
       let sigPayload;
 
-      if ((method === 'POST' && !options.body) || method === 'GET') {
+      if ((method === "POST" && !options.body) || method === "GET") {
         // For these requests, use {"id": "card_id"} as the payload for signature generation
         if (resourceId) {
           sigPayload = JSON.stringify({ id: resourceId });
         } else {
-          payload = '{}';
+          payload = "{}";
           sigPayload = payload;
         }
       } else {
         // For normal POST/PUT/PATCH with body, use the actual payload
-        payload = options.body ? JSON.stringify(options.body) : '';
+        payload = options.body ? JSON.stringify(options.body) : "";
         sigPayload = payload;
       }
 
@@ -129,19 +141,19 @@ class BaseApi {
 
       // Prepare headers
       const headers = {
-        'Content-Type': 'application/json',
-        'X-ACCT-ID': this.accountId,
-        'X-PAYLOAD-SIG': signature,
-        'User-Agent': `accessgrid.js @ v${this.version}`,
-        ...(options.headers || {})
+        "Content-Type": "application/json",
+        "X-ACCT-ID": this.accountId,
+        "X-PAYLOAD-SIG": signature,
+        "User-Agent": `accessgrid.js @ v${this.version}`,
+        ...(options.headers || {}),
       };
 
       // Handle query parameters for GET requests or POST with empty body
       let finalUrl = url;
-      if (method === 'GET' || (method === 'POST' && !options.body)) {
+      if (method === "GET" || (method === "POST" && !options.body)) {
         if (resourceId) {
           // Add sig_payload to query params
-          const separator = finalUrl.includes('?') ? '&' : '?';
+          const separator = finalUrl.includes("?") ? "&" : "?";
           finalUrl = `${finalUrl}${separator}sig_payload=${encodeURIComponent(JSON.stringify({ id: resourceId }))}`;
         }
       }
@@ -150,7 +162,7 @@ class BaseApi {
       const response = await fetch(finalUrl, {
         method,
         headers,
-        body: method !== 'GET' ? payload : undefined,
+        body: method !== "GET" ? payload : undefined,
       });
 
       const data = await response.json();
@@ -159,9 +171,9 @@ class BaseApi {
         if (response.status === 401) {
           throw new AuthenticationError();
         } else if (response.status === 402) {
-          throw new AccessGridError('Insufficient account balance');
+          throw new AccessGridError("Insufficient account balance");
         } else {
-          throw new AccessGridError(data.message || 'Request failed');
+          throw new AccessGridError(data.message || "Request failed");
         }
       }
 
@@ -178,29 +190,31 @@ class BaseApi {
     try {
       // Base64 encode the payload
       const encodedPayload = btoa(payload);
-      
+
       // Generate SHA256 HMAC
       const encoder = new TextEncoder();
       const key = await crypto.subtle.importKey(
-        'raw',
+        "raw",
         encoder.encode(this.secretKey),
-        { name: 'HMAC', hash: 'SHA-256' },
+        { name: "HMAC", hash: "SHA-256" },
         false,
-        ['sign']
+        ["sign"],
       );
-      
+
       const signature = await crypto.subtle.sign(
-        'HMAC',
+        "HMAC",
         key,
-        encoder.encode(encodedPayload)
+        encoder.encode(encodedPayload),
       );
 
       // Convert to hex string
       return Array.from(new Uint8Array(signature))
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join('');
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
     } catch (error) {
-      throw new AccessGridError(`Failed to generate signature: ${error.message}`);
+      throw new AccessGridError(
+        `Failed to generate signature: ${error.message}`,
+      );
     }
   }
 }
@@ -213,11 +227,13 @@ class AccessCardsApi extends BaseApi {
 
   async provision(params) {
     // Required parameters validation
-    if (!params.cardTemplateId) throw new AccessGridError('card_template_id is required');
-    if (!params.fullName) throw new AccessGridError('full_name is required');
-    if (!params.startDate) throw new AccessGridError('start_date is required');
-    if (!params.expirationDate) throw new AccessGridError('expiration_date is required');
-    
+    if (!params.cardTemplateId)
+      throw new AccessGridError("card_template_id is required");
+    if (!params.fullName) throw new AccessGridError("full_name is required");
+    if (!params.startDate) throw new AccessGridError("start_date is required");
+    if (!params.expirationDate)
+      throw new AccessGridError("expiration_date is required");
+
     // Start with required parameters
     const requestBody = {
       card_template_id: params.cardTemplateId,
@@ -225,39 +241,44 @@ class AccessCardsApi extends BaseApi {
       start_date: params.startDate,
       expiration_date: params.expirationDate,
     };
-    
+
     // Map camelCase JS params to snake_case API params
     const paramMapping = {
-      employeeId: 'employee_id',
-      tagId: 'tag_id',
-      phoneNumber: 'phone_number',
-      employeePhoto: 'employee_photo',
-      allowOnMultipleDevices: 'allow_on_multiple_devices',
-      memberId: 'member_id',
-      membershipStatus: 'membership_status',
-      isPassReadyToTransact: 'is_pass_ready_to_transact',
-      tileData: 'tile_data',
-      reservations: 'reservations',
-      siteCode: 'site_code',
-      cardNumber: 'card_number',
-      fileData: 'file_data',
-      email: 'email',
-      classification: 'classification'
+      employeeId: "employee_id",
+      tagId: "tag_id",
+      phoneNumber: "phone_number",
+      employeePhoto: "employee_photo",
+      allowOnMultipleDevices: "allow_on_multiple_devices",
+      memberId: "member_id",
+      membershipStatus: "membership_status",
+      isPassReadyToTransact: "is_pass_ready_to_transact",
+      tileData: "tile_data",
+      reservations: "reservations",
+      siteCode: "site_code",
+      cardNumber: "card_number",
+      fileData: "file_data",
+      email: "email",
+      classification: "classification",
     };
-    
+
     // Add any params that exist to the request body
-    Object.keys(params).forEach(key => {
-      if (key !== 'cardTemplateId' && key !== 'fullName' && 
-          key !== 'startDate' && key !== 'expirationDate' && 
-          params[key] !== undefined && params[key] !== null) {
+    Object.keys(params).forEach((key) => {
+      if (
+        key !== "cardTemplateId" &&
+        key !== "fullName" &&
+        key !== "startDate" &&
+        key !== "expirationDate" &&
+        params[key] !== undefined &&
+        params[key] !== null
+      ) {
         const apiKey = paramMapping[key] || key;
         requestBody[apiKey] = params[key];
       }
     });
-    
-    const response = await this.request('/v1/key-cards', {
-      method: 'POST',
-      body: requestBody
+
+    const response = await this.request("/v1/key-cards", {
+      method: "POST",
+      body: requestBody,
     });
     return new AccessCard(response);
   }
@@ -269,7 +290,7 @@ class AccessCardsApi extends BaseApi {
 
   async get(params) {
     // Required parameter validation
-    if (!params.cardId) throw new AccessGridError('card_id is required');
+    if (!params.cardId) throw new AccessGridError("card_id is required");
 
     const response = await this.request(`/v1/key-cards/${params.cardId}`);
     return new AccessCard(response);
@@ -277,37 +298,41 @@ class AccessCardsApi extends BaseApi {
 
   async update(params) {
     // Required parameter validation
-    if (!params.cardId) throw new AccessGridError('card_id is required');
-    
+    if (!params.cardId) throw new AccessGridError("card_id is required");
+
     // Create empty request body
     const requestBody = {};
-    
+
     // Map camelCase JS params to snake_case API params
     const paramMapping = {
-      employeeId: 'employee_id',
-      fullName: 'full_name',
-      classification: 'classification',
-      expirationDate: 'expiration_date',
-      employeePhoto: 'employee_photo',
+      employeeId: "employee_id",
+      fullName: "full_name",
+      classification: "classification",
+      expirationDate: "expiration_date",
+      employeePhoto: "employee_photo",
       // Hotel-specific parameters
-      memberId: 'member_id',
-      membershipStatus: 'membership_status',
-      isPassReadyToTransact: 'is_pass_ready_to_transact',
-      tileData: 'tile_data',
-      reservations: 'reservations'
+      memberId: "member_id",
+      membershipStatus: "membership_status",
+      isPassReadyToTransact: "is_pass_ready_to_transact",
+      tileData: "tile_data",
+      reservations: "reservations",
     };
-    
+
     // Add any params that exist to the request body
-    Object.keys(params).forEach(key => {
-      if (key !== 'cardId' && params[key] !== undefined && params[key] !== null) {
+    Object.keys(params).forEach((key) => {
+      if (
+        key !== "cardId" &&
+        params[key] !== undefined &&
+        params[key] !== null
+      ) {
         const apiKey = paramMapping[key] || key;
         requestBody[apiKey] = params[key];
       }
     });
-    
+
     const response = await this.request(`/v1/key-cards/${params.cardId}`, {
-      method: 'PATCH',
-      body: requestBody
+      method: "PATCH",
+      body: requestBody,
     });
     return new AccessCard(response);
   }
@@ -315,34 +340,34 @@ class AccessCardsApi extends BaseApi {
   async list(templateId, state = null) {
     const params = new URLSearchParams({ template_id: templateId });
     if (state) {
-      params.append('state', state);
+      params.append("state", state);
     }
-    
+
     const response = await this.request(`/v1/key-cards?${params.toString()}`);
-    return (response.keys || []).map(item => new AccessCard(item));
+    return (response.keys || []).map((item) => new AccessCard(item));
   }
 
   async manage(cardId, action) {
     const response = await this.request(`/v1/key-cards/${cardId}/${action}`, {
-      method: 'POST'
+      method: "POST",
     });
     return new AccessCard(response);
   }
 
   async suspend(params) {
-    return this.manage(params.cardId, 'suspend');
+    return this.manage(params.cardId, "suspend");
   }
 
   async resume(params) {
-    return this.manage(params.cardId, 'resume');
+    return this.manage(params.cardId, "resume");
   }
 
   async unlink(params) {
-    return this.manage(params.cardId, 'unlink');
+    return this.manage(params.cardId, "unlink");
   }
 
   async delete(params) {
-    return this.manage(params.cardId, 'delete');
+    return this.manage(params.cardId, "delete");
   }
 }
 
@@ -353,8 +378,8 @@ class ConsoleApi extends BaseApi {
   }
 
   async createTemplate(params) {
-    const response = await this.request('/v1/console/card-templates', {
-      method: 'POST',
+    const response = await this.request("/v1/console/card-templates", {
+      method: "POST",
       body: {
         name: params.name,
         platform: params.platform,
@@ -370,45 +395,56 @@ class ConsoleApi extends BaseApi {
         support_phone_number: params.supportInfo?.supportPhoneNumber,
         support_email: params.supportInfo?.supportEmail,
         privacy_policy_url: params.supportInfo?.privacyPolicyUrl,
-        terms_and_conditions_url: params.supportInfo?.termsAndConditionsUrl
-      }
+        terms_and_conditions_url: params.supportInfo?.termsAndConditionsUrl,
+      },
     });
     return new Template(response);
   }
 
   async updateTemplate(params) {
-    const response = await this.request(`/v1/console/card-templates/${params.cardTemplateId}`, {
-      method: 'PUT',
-      body: {
-        name: params.name,
-        allow_on_multiple_devices: params.allowOnMultipleDevices,
-        watch_count: params.watchCount,
-        iphone_count: params.iphoneCount,
-        support_url: params.supportInfo?.supportUrl,
-        support_phone_number: params.supportInfo?.supportPhoneNumber,
-        support_email: params.supportInfo?.supportEmail,
-        privacy_policy_url: params.supportInfo?.privacyPolicyUrl,
-        terms_and_conditions_url: params.supportInfo?.termsAndConditionsUrl
-      }
-    });
+    const response = await this.request(
+      `/v1/console/card-templates/${params.cardTemplateId}`,
+      {
+        method: "PUT",
+        body: {
+          name: params.name,
+          allow_on_multiple_devices: params.allowOnMultipleDevices,
+          watch_count: params.watchCount,
+          iphone_count: params.iphoneCount,
+          support_url: params.supportInfo?.supportUrl,
+          support_phone_number: params.supportInfo?.supportPhoneNumber,
+          support_email: params.supportInfo?.supportEmail,
+          privacy_policy_url: params.supportInfo?.privacyPolicyUrl,
+          terms_and_conditions_url: params.supportInfo?.termsAndConditionsUrl,
+        },
+      },
+    );
     return new Template(response);
   }
 
   async readTemplate(params) {
-    const response = await this.request(`/v1/console/card-templates/${params.cardTemplateId}`);
+    const response = await this.request(
+      `/v1/console/card-templates/${params.cardTemplateId}`,
+    );
     return new Template(response);
   }
 
   async getEventLogs(params) {
     const queryParams = new URLSearchParams();
     if (params.filters) {
-      if (params.filters.device) queryParams.append('filters[device]', params.filters.device);
-      if (params.filters.startDate) queryParams.append('filters[start_date]', params.filters.startDate);
-      if (params.filters.endDate) queryParams.append('filters[end_date]', params.filters.endDate);
-      if (params.filters.eventType) queryParams.append('filters[event_type]', params.filters.eventType);
+      if (params.filters.device)
+        queryParams.append("filters[device]", params.filters.device);
+      if (params.filters.startDate)
+        queryParams.append("filters[start_date]", params.filters.startDate);
+      if (params.filters.endDate)
+        queryParams.append("filters[end_date]", params.filters.endDate);
+      if (params.filters.eventType)
+        queryParams.append("filters[event_type]", params.filters.eventType);
     }
-    
-    return this.request(`/v1/console/card-templates/${params.cardTemplateId}/logs?${queryParams}`);
+
+    return this.request(
+      `/v1/console/card-templates/${params.cardTemplateId}/logs?${queryParams}`,
+    );
   }
 
   // Alias for getEventLogs for backwards compatibility
@@ -418,16 +454,20 @@ class ConsoleApi extends BaseApi {
 
   async listPassTemplatePairs(params = {}) {
     const queryParams = new URLSearchParams();
-    if (params.page) queryParams.append('page', params.page);
-    if (params.perPage) queryParams.append('per_page', params.perPage);
+    if (params.page) queryParams.append("page", params.page);
+    if (params.perPage) queryParams.append("per_page", params.perPage);
 
     const queryString = queryParams.toString();
-    const path = queryString ? `/v1/console/pass-template-pairs?${queryString}` : '/v1/console/pass-template-pairs';
+    const path = queryString
+      ? `/v1/console/pass-template-pairs?${queryString}`
+      : "/v1/console/pass-template-pairs";
 
     const response = await this.request(path);
 
     if (response.pass_template_pairs) {
-      response.passTemplatePairs = response.pass_template_pairs.map(pair => new PassTemplatePair(pair));
+      response.passTemplatePairs = response.pass_template_pairs.map(
+        (pair) => new PassTemplatePair(pair),
+      );
       delete response.pass_template_pairs;
     }
 
@@ -438,11 +478,11 @@ class ConsoleApi extends BaseApi {
 // Main AccessGrid class
 class AccessGrid {
   constructor(accountId, secretKey, options = {}) {
-    if (!accountId) throw new Error('Account ID is required');
-    if (!secretKey) throw new Error('Secret Key is required');
-    
-    const baseUrl = options.baseUrl || 'https://api.accessgrid.com';
-    
+    if (!accountId) throw new Error("Account ID is required");
+    if (!secretKey) throw new Error("Secret Key is required");
+
+    const baseUrl = options.baseUrl || "https://api.accessgrid.com";
+
     this.accessCards = new AccessCardsApi(accountId, secretKey, baseUrl);
     this.console = new ConsoleApi(accountId, secretKey, baseUrl);
   }
@@ -456,7 +496,7 @@ export {
   AccessCard,
   Template,
   PassTemplatePair,
-  TemplateInfo
+  TemplateInfo,
 };
 
 // Default export
