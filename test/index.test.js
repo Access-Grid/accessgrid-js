@@ -1,6 +1,9 @@
 import AccessGrid, { AccessGridError, AuthenticationError, AccessCard, Template } from '../src/index';
 
-// Mock fetch globally
+// ══════════════════════════════════════════════════════════════════════════════
+// Global mocks
+// ══════════════════════════════════════════════════════════════════════════════
+
 global.fetch = jest.fn();
 global.crypto = {
   subtle: {
@@ -17,20 +20,17 @@ describe('AccessGrid SDK', () => {
   let client;
   const mockAccountId = 'test-account-id';
   const mockSecretKey = 'test-secret-key';
-  
+
   beforeEach(() => {
     client = new AccessGrid(mockAccountId, mockSecretKey);
-    // Clear all mocks before each test
     jest.clearAllMocks();
-    
-    // Setup default crypto mocks
+
     global.crypto.subtle.importKey.mockResolvedValue('mockKey');
     global.crypto.subtle.sign.mockResolvedValue(new Uint8Array([1, 2, 3]));
-    
-    // Setup default successful response
+
     global.fetch.mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({ 
+      json: () => Promise.resolve({
         id: 'mock-id',
         install_url: 'https://example.com/install',
         state: 'active',
@@ -38,6 +38,10 @@ describe('AccessGrid SDK', () => {
       })
     });
   });
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // Constructor
+  // ════════════════════════════════════════════════════════════════════════════
 
   describe('Constructor', () => {
     test('should throw error if accountId is missing', () => {
@@ -55,6 +59,10 @@ describe('AccessGrid SDK', () => {
       expect(customClient).toBeInstanceOf(AccessGrid);
     });
   });
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // Error handling
+  // ════════════════════════════════════════════════════════════════════════════
 
   describe('Error Handling', () => {
     test('should throw AuthenticationError on 401', async () => {
@@ -91,6 +99,10 @@ describe('AccessGrid SDK', () => {
         .toThrow(AccessGridError);
     });
   });
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // AccessCards API
+  // ════════════════════════════════════════════════════════════════════════════
 
   describe('AccessCards API', () => {
     describe('provision', () => {
@@ -165,7 +177,7 @@ describe('AccessGrid SDK', () => {
         });
 
         const result = await client.accessCards.list(templateId);
-        
+
         expect(fetch).toHaveBeenCalledWith(
           expect.stringContaining(`/v1/key-cards?template_id=${templateId}`),
           expect.anything()
@@ -183,7 +195,7 @@ describe('AccessGrid SDK', () => {
         });
 
         await client.accessCards.list(templateId, state);
-        
+
         expect(fetch).toHaveBeenCalledWith(
           expect.stringContaining(`template_id=${templateId}&state=${state}`),
           expect.anything()
@@ -239,6 +251,10 @@ describe('AccessGrid SDK', () => {
       });
     });
   });
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // Console API
+  // ════════════════════════════════════════════════════════════════════════════
 
   describe('Console API', () => {
     describe('createTemplate', () => {
@@ -357,6 +373,10 @@ describe('AccessGrid SDK', () => {
       });
     });
   });
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // Models
+  // ════════════════════════════════════════════════════════════════════════════
 
   describe('Model classes', () => {
     test('AccessCard should have correct properties', () => {
