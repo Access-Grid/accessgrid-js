@@ -1,4 +1,4 @@
-import AccessGrid, { AccessGridError, AuthenticationError, AccessCard, Template } from '../src/index';
+import AccessGrid, { AccessGridError, AuthenticationError, AccessCard, Template, PassTemplatePair, TemplateInfo } from '../src/index';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Global mocks
@@ -370,6 +370,130 @@ describe('AccessGrid SDK', () => {
         const spy = jest.spyOn(client.console, 'getEventLogs');
         await client.console.eventLog(mockEventParams);
         expect(spy).toHaveBeenCalledWith(mockEventParams);
+      });
+    });
+
+    describe('listPassTemplatePairs', () => {
+      const mockPairsResponse = {
+        pass_template_pairs: [
+          {
+            id: 'pair-1',
+            name: 'Employee Badge Pair',
+            created_at: '2025-01-15T00:00:00Z',
+            ios_template: { id: 'ios-1', name: 'iOS Badge', platform: 'apple' },
+            android_template: { id: 'android-1', name: 'Android Badge', platform: 'google' }
+          },
+          {
+            id: 'pair-2',
+            name: 'Visitor Pass Pair',
+            created_at: '2025-02-01T00:00:00Z',
+            ios_template: { id: 'ios-2', name: 'iOS Visitor', platform: 'apple' },
+            android_template: null
+          }
+        ]
+      };
+
+      test('should make correct API call', async () => {
+        global.fetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(mockPairsResponse)
+        });
+
+        await client.console.listPassTemplatePairs();
+
+        expect(fetch).toHaveBeenCalledWith(
+          expect.stringContaining('/v1/console/pass-template-pairs'),
+          expect.objectContaining({
+            method: 'GET'
+          })
+        );
+      });
+
+      test('should pass pagination params', async () => {
+        global.fetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(mockPairsResponse)
+        });
+
+        await client.console.listPassTemplatePairs({ page: 2, perPage: 10 });
+
+        expect(fetch).toHaveBeenCalledWith(
+          expect.stringContaining('page=2'),
+          expect.anything()
+        );
+        expect(fetch).toHaveBeenCalledWith(
+          expect.stringContaining('per_page=10'),
+          expect.anything()
+        );
+      });
+
+      test('should not include query string when no params given', async () => {
+        global.fetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(mockPairsResponse)
+        });
+
+        await client.console.listPassTemplatePairs();
+
+        const calledUrl = fetch.mock.calls[0][0];
+        expect(calledUrl).toMatch(/\/pass-template-pairs(\?sig_payload=|$)/);
+      });
+
+      test('should return PassTemplatePair instances', async () => {
+        global.fetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(mockPairsResponse)
+        });
+
+        const result = await client.console.listPassTemplatePairs();
+
+        expect(result.passTemplatePairs).toHaveLength(2);
+        expect(result.passTemplatePairs[0]).toBeInstanceOf(PassTemplatePair);
+        expect(result.passTemplatePairs[1]).toBeInstanceOf(PassTemplatePair);
+      });
+
+      test('should remove snake_case key from response', async () => {
+        global.fetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(mockPairsResponse)
+        });
+
+        const result = await client.console.listPassTemplatePairs();
+
+        expect(result.pass_template_pairs).toBeUndefined();
+      });
+
+      test('should deserialize nested TemplateInfo models', async () => {
+        global.fetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(mockPairsResponse)
+        });
+
+        const result = await client.console.listPassTemplatePairs();
+        const pair = result.passTemplatePairs[0];
+
+        expect(pair.id).toBe('pair-1');
+        expect(pair.name).toBe('Employee Badge Pair');
+        expect(pair.createdAt).toBe('2025-01-15T00:00:00Z');
+        expect(pair.iosTemplate).toBeInstanceOf(TemplateInfo);
+        expect(pair.iosTemplate.id).toBe('ios-1');
+        expect(pair.iosTemplate.platform).toBe('apple');
+        expect(pair.androidTemplate).toBeInstanceOf(TemplateInfo);
+        expect(pair.androidTemplate.id).toBe('android-1');
+        expect(pair.androidTemplate.platform).toBe('google');
+      });
+
+      test('should handle null template in a pair', async () => {
+        global.fetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(mockPairsResponse)
+        });
+
+        const result = await client.console.listPassTemplatePairs();
+        const pair = result.passTemplatePairs[1];
+
+        expect(pair.iosTemplate).toBeInstanceOf(TemplateInfo);
+        expect(pair.androidTemplate).toBeNull();
       });
     });
   });
