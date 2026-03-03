@@ -64,7 +64,12 @@ describe('AccessGrid SDK', () => {
         json: () => Promise.resolve({ message: 'Invalid credentials' })
       });
 
-      await expect(client.accessCards.provision({ cardTemplateId: '123' }))
+      await expect(client.accessCards.provision({
+        cardTemplateId: '123',
+        fullName: 'Test User',
+        startDate: '2025-01-01T00:00:00Z',
+        expirationDate: '2025-12-31T00:00:00Z'
+      }))
         .rejects
         .toThrow(AuthenticationError);
     });
@@ -76,7 +81,12 @@ describe('AccessGrid SDK', () => {
         json: () => Promise.resolve({ message: 'Invalid input' })
       });
 
-      await expect(client.accessCards.provision({ cardTemplateId: '123' }))
+      await expect(client.accessCards.provision({
+        cardTemplateId: '123',
+        fullName: 'Test User',
+        startDate: '2025-01-01T00:00:00Z',
+        expirationDate: '2025-12-31T00:00:00Z'
+      }))
         .rejects
         .toThrow(AccessGridError);
     });
