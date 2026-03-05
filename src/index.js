@@ -80,6 +80,45 @@ class TemplateInfo {
   }
 }
 
+// LedgerItemPassTemplate model class
+class LedgerItemPassTemplate {
+  constructor(data = {}) {
+    this.id = data.id;
+    this.name = data.name;
+    this.protocol = data.protocol;
+    this.platform = data.platform;
+    this.useCase = data.use_case;
+  }
+}
+
+// LedgerItemAccessPass model class
+class LedgerItemAccessPass {
+  constructor(data = {}) {
+    this.id = data.id;
+    this.fullName = data.full_name;
+    this.state = data.state;
+    this.metadata = data.metadata || {};
+    this.unifiedAccessPassExId = data.unified_access_pass_ex_id;
+    this.passTemplate = data.pass_template
+      ? new LedgerItemPassTemplate(data.pass_template)
+      : null;
+  }
+}
+
+// LedgerItem model class
+class LedgerItem {
+  constructor(data = {}) {
+    this.id = data.id;
+    this.createdAt = data.created_at;
+    this.amount = data.amount;
+    this.kind = data.kind;
+    this.metadata = data.metadata || {};
+    this.accessPass = data.access_pass
+      ? new LedgerItemAccessPass(data.access_pass)
+      : null;
+  }
+}
+
 // Base API wrapper to handle common functionality
 class BaseApi {
   constructor(accountId, secretKey, baseUrl = "https://api.accessgrid.com") {
@@ -473,6 +512,30 @@ class ConsoleApi extends BaseApi {
 
     return response;
   }
+
+  async listLedgerItems(params = {}) {
+    const queryParams = new URLSearchParams();
+    if (params.page) queryParams.append("page", params.page);
+    if (params.perPage) queryParams.append("per_page", params.perPage);
+    if (params.startDate) queryParams.append("start_date", params.startDate);
+    if (params.endDate) queryParams.append("end_date", params.endDate);
+
+    const queryString = queryParams.toString();
+    const path = queryString
+      ? `/v1/console/ledger-items?${queryString}`
+      : "/v1/console/ledger-items";
+
+    const response = await this.request(path);
+
+    if (response.ledger_items) {
+      response.ledgerItems = response.ledger_items.map(
+        (item) => new LedgerItem(item),
+      );
+      delete response.ledger_items;
+    }
+
+    return response;
+  }
 }
 
 // Main AccessGrid class
@@ -497,6 +560,9 @@ export {
   Template,
   PassTemplatePair,
   TemplateInfo,
+  LedgerItem,
+  LedgerItemAccessPass,
+  LedgerItemPassTemplate,
 };
 
 // Default export
