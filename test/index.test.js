@@ -1,4 +1,4 @@
-import AccessGrid, { AccessGridError, AuthenticationError, AccessCard, Template, PassTemplatePair, TemplateInfo, HIDOrg, LedgerItem } from '../src/index';
+import AccessGrid, { AccessGridError, AuthenticationError, AccessCard, Template, PassTemplatePair, TemplateInfo, HIDOrg, LedgerItem, LedgerItemAccessPass, LedgerItemPassTemplate } from '../src/index';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Global mocks
@@ -780,24 +780,92 @@ describe('AccessGrid SDK', () => {
       expect(org.createdAt).toBe('2025-01-01T00:00:00Z');
     });
 
-    test('LedgerItem should have correct properties', () => {
+    test('LedgerItem should deserialize with nested access pass and template', () => {
       const item = new LedgerItem({
         id: 'li-1',
-        amount: '1.50',
-        kind: 'issuance',
-        created_at: '2025-01-01T00:00:00Z',
+        created_at: '2025-03-01T00:00:00Z',
+        amount: 150,
+        kind: 'provision',
+        metadata: { note: 'test' },
         access_pass: {
-          ex_id: 'pass-1',
-          pass_template: { ex_id: 'tmpl-1' }
+          id: 'ap-1',
+          full_name: 'Jane Doe',
+          state: 'active',
+          metadata: { dept: 'eng' },
+          unified_access_pass_ex_id: 'uap-1',
+          pass_template: {
+            id: 'pt-1',
+            name: 'Employee Badge',
+            protocol: 'desfire',
+            platform: 'apple',
+            use_case: 'employee_badge'
+          }
         }
       });
 
       expect(item.id).toBe('li-1');
-      expect(item.amount).toBe('1.50');
-      expect(item.kind).toBe('issuance');
-      expect(item.createdAt).toBe('2025-01-01T00:00:00Z');
-      expect(item.accessPass.exId).toBe('pass-1');
-      expect(item.accessPass.passTemplate.exId).toBe('tmpl-1');
+      expect(item.createdAt).toBe('2025-03-01T00:00:00Z');
+      expect(item.amount).toBe(150);
+      expect(item.kind).toBe('provision');
+      expect(item.metadata).toEqual({ note: 'test' });
+      expect(item.accessPass).toBeInstanceOf(LedgerItemAccessPass);
+      expect(item.accessPass.id).toBe('ap-1');
+      expect(item.accessPass.fullName).toBe('Jane Doe');
+      expect(item.accessPass.state).toBe('active');
+      expect(item.accessPass.metadata).toEqual({ dept: 'eng' });
+      expect(item.accessPass.unifiedAccessPassExId).toBe('uap-1');
+      expect(item.accessPass.passTemplate).toBeInstanceOf(LedgerItemPassTemplate);
+      expect(item.accessPass.passTemplate.id).toBe('pt-1');
+      expect(item.accessPass.passTemplate.name).toBe('Employee Badge');
+      expect(item.accessPass.passTemplate.protocol).toBe('desfire');
+      expect(item.accessPass.passTemplate.platform).toBe('apple');
+      expect(item.accessPass.passTemplate.useCase).toBe('employee_badge');
+    });
+
+    test('LedgerItem handles null access_pass', () => {
+      const item = new LedgerItem({
+        id: 'li-2',
+        created_at: '2025-03-01T00:00:00Z',
+        amount: 50,
+        kind: 'renewal',
+        metadata: {},
+        access_pass: null
+      });
+
+      expect(item.id).toBe('li-2');
+      expect(item.accessPass).toBeNull();
+    });
+
+    test('LedgerItem handles null pass_template on access pass', () => {
+      const item = new LedgerItem({
+        id: 'li-3',
+        created_at: '2025-03-01T00:00:00Z',
+        amount: 75,
+        kind: 'provision',
+        metadata: {},
+        access_pass: {
+          id: 'ap-2',
+          full_name: 'John Smith',
+          state: 'suspended',
+          metadata: {},
+          unified_access_pass_ex_id: null,
+          pass_template: null
+        }
+      });
+
+      expect(item.accessPass).toBeInstanceOf(LedgerItemAccessPass);
+      expect(item.accessPass.passTemplate).toBeNull();
+    });
+
+    test('LedgerItem handles missing access_pass key', () => {
+      const item = new LedgerItem({
+        id: 'li-4',
+        created_at: '2025-03-01T00:00:00Z',
+        amount: 25,
+        kind: 'other'
+      });
+
+      expect(item.accessPass).toBeNull();
     });
 
     test('Template should have metadata property', () => {
@@ -835,6 +903,192 @@ describe('AccessGrid SDK', () => {
       });
 
       expect(card.title).toBe('Engineering Manager');
+    });
+  });
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // Console API — Ledger Items
+  // ════════════════════════════════════════════════════════════════════════════
+
+  describe('Console API — listLedgerItems', () => {
+    const mockLedgerResponse = {
+      ledger_items: [
+        {
+          id: 'li-1',
+          created_at: '2025-03-01T12:00:00Z',
+          amount: 150,
+          kind: 'provision',
+          metadata: {},
+          access_pass: {
+            id: 'ap-1',
+            full_name: 'Jane Doe',
+            state: 'active',
+            metadata: {},
+            unified_access_pass_ex_id: 'uap-1',
+            pass_template: {
+              id: 'pt-1',
+              name: 'Employee Badge',
+              protocol: 'desfire',
+              platform: 'apple',
+              use_case: 'employee_badge'
+            }
+          }
+        },
+        {
+          id: 'li-2',
+          created_at: '2025-03-02T12:00:00Z',
+          amount: 50,
+          kind: 'renewal',
+          metadata: {},
+          access_pass: null
+        }
+      ],
+      pagination: {
+        current_page: 1,
+        per_page: 50,
+        total_pages: 3,
+        total_count: 125
+      }
+    };
+
+    test('should make correct API call', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockLedgerResponse)
+      });
+
+      await client.console.listLedgerItems();
+
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/v1/console/ledger-items'),
+        expect.objectContaining({
+          method: 'GET'
+        })
+      );
+    });
+
+    test('should pass pagination params', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockLedgerResponse)
+      });
+
+      await client.console.listLedgerItems({ page: 2, perPage: 10 });
+
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('page=2'),
+        expect.anything()
+      );
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('per_page=10'),
+        expect.anything()
+      );
+    });
+
+    test('should pass date filter params', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockLedgerResponse)
+      });
+
+      await client.console.listLedgerItems({
+        startDate: '2025-03-01T00:00:00Z',
+        endDate: '2025-03-31T23:59:59Z'
+      });
+
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('start_date=2025-03-01T00%3A00%3A00Z'),
+        expect.anything()
+      );
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('end_date=2025-03-31T23%3A59%3A59Z'),
+        expect.anything()
+      );
+    });
+
+    test('should not include query string when no params given', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockLedgerResponse)
+      });
+
+      await client.console.listLedgerItems();
+
+      const calledUrl = fetch.mock.calls[0][0];
+      expect(calledUrl).toMatch(/\/ledger-items(\?sig_payload=|$)/);
+    });
+
+    test('should return LedgerItem instances', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockLedgerResponse)
+      });
+
+      const result = await client.console.listLedgerItems();
+
+      expect(result.ledgerItems).toHaveLength(2);
+      expect(result.ledgerItems[0]).toBeInstanceOf(LedgerItem);
+      expect(result.ledgerItems[1]).toBeInstanceOf(LedgerItem);
+    });
+
+    test('should remove snake_case key from response', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockLedgerResponse)
+      });
+
+      const result = await client.console.listLedgerItems();
+
+      expect(result.ledger_items).toBeUndefined();
+    });
+
+    test('should deserialize nested models', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockLedgerResponse)
+      });
+
+      const result = await client.console.listLedgerItems();
+      const item = result.ledgerItems[0];
+
+      expect(item.id).toBe('li-1');
+      expect(item.amount).toBe(150);
+      expect(item.kind).toBe('provision');
+      expect(item.accessPass).toBeInstanceOf(LedgerItemAccessPass);
+      expect(item.accessPass.id).toBe('ap-1');
+      expect(item.accessPass.fullName).toBe('Jane Doe');
+      expect(item.accessPass.passTemplate).toBeInstanceOf(LedgerItemPassTemplate);
+      expect(item.accessPass.passTemplate.id).toBe('pt-1');
+      expect(item.accessPass.passTemplate.name).toBe('Employee Badge');
+    });
+
+    test('should handle null access_pass in response', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockLedgerResponse)
+      });
+
+      const result = await client.console.listLedgerItems();
+      const item = result.ledgerItems[1];
+
+      expect(item.id).toBe('li-2');
+      expect(item.accessPass).toBeNull();
+    });
+
+    test('should preserve pagination metadata', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockLedgerResponse)
+      });
+
+      const result = await client.console.listLedgerItems();
+
+      expect(result.pagination).toEqual({
+        current_page: 1,
+        per_page: 50,
+        total_pages: 3,
+        total_count: 125
+      });
     });
   });
 
@@ -974,7 +1228,7 @@ describe('AccessGrid SDK', () => {
   });
 
   // ════════════════════════════════════════════════════════════════════════════
-  // Ledger Items
+  // Ledger Items (legacy)
   // ════════════════════════════════════════════════════════════════════════════
 
   describe('Ledger Items', () => {

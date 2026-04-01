@@ -84,27 +84,6 @@ class HIDOrg {
   }
 }
 
-// LedgerItem model class
-class LedgerItem {
-  constructor(data = {}) {
-    this.id = data.id;
-    this.amount = data.amount;
-    this.kind = data.kind;
-    this.createdAt = data.created_at;
-
-    if (data.access_pass) {
-      this.accessPass = {
-        exId: data.access_pass.ex_id,
-        passTemplate: data.access_pass.pass_template
-          ? { exId: data.access_pass.pass_template.ex_id }
-          : null,
-      };
-    } else {
-      this.accessPass = null;
-    }
-  }
-}
-
 // PassTemplatePair model class
 class PassTemplatePair {
   constructor(data = {}) {
@@ -126,6 +105,45 @@ class TemplateInfo {
     this.id = data.id;
     this.name = data.name;
     this.platform = data.platform;
+  }
+}
+
+// LedgerItemPassTemplate model class
+class LedgerItemPassTemplate {
+  constructor(data = {}) {
+    this.id = data.id;
+    this.name = data.name;
+    this.protocol = data.protocol;
+    this.platform = data.platform;
+    this.useCase = data.use_case;
+  }
+}
+
+// LedgerItemAccessPass model class
+class LedgerItemAccessPass {
+  constructor(data = {}) {
+    this.id = data.id;
+    this.fullName = data.full_name;
+    this.state = data.state;
+    this.metadata = data.metadata || {};
+    this.unifiedAccessPassExId = data.unified_access_pass_ex_id;
+    this.passTemplate = data.pass_template
+      ? new LedgerItemPassTemplate(data.pass_template)
+      : null;
+  }
+}
+
+// LedgerItem model class
+class LedgerItem {
+  constructor(data = {}) {
+    this.id = data.id;
+    this.createdAt = data.created_at;
+    this.amount = data.amount;
+    this.kind = data.kind;
+    this.metadata = data.metadata || {};
+    this.accessPass = data.access_pass
+      ? new LedgerItemAccessPass(data.access_pass)
+      : null;
   }
 }
 
@@ -580,6 +598,30 @@ class ConsoleApi extends BaseApi {
 
     return response;
   }
+
+  async listLedgerItems(params = {}) {
+    const queryParams = new URLSearchParams();
+    if (params.page) queryParams.append("page", params.page);
+    if (params.perPage) queryParams.append("per_page", params.perPage);
+    if (params.startDate) queryParams.append("start_date", params.startDate);
+    if (params.endDate) queryParams.append("end_date", params.endDate);
+
+    const queryString = queryParams.toString();
+    const path = queryString
+      ? `/v1/console/ledger-items?${queryString}`
+      : "/v1/console/ledger-items";
+
+    const response = await this.request(path);
+
+    if (response.ledger_items) {
+      response.ledgerItems = response.ledger_items.map(
+        (item) => new LedgerItem(item),
+      );
+      delete response.ledger_items;
+    }
+
+    return response;
+  }
 }
 
 // HID Orgs API handling
@@ -645,6 +687,8 @@ export {
   TemplateInfo,
   HIDOrg,
   LedgerItem,
+  LedgerItemAccessPass,
+  LedgerItemPassTemplate,
 };
 
 // Default export
