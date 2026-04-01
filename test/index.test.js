@@ -1,4 +1,4 @@
-import AccessGrid, { AccessGridError, AuthenticationError, AccessCard, Template, PassTemplatePair, TemplateInfo, LedgerItem, LedgerItemAccessPass, LedgerItemPassTemplate } from '../src/index';
+import AccessGrid, { AccessGridError, AuthenticationError, AccessCard, Template, PassTemplatePair, TemplateInfo, HIDOrg, LedgerItem, LedgerItemAccessPass, LedgerItemPassTemplate } from '../src/index';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Global mocks
@@ -227,14 +227,14 @@ describe('AccessGrid SDK', () => {
     });
 
     describe('list', () => {
-      test('should make correct API call for listing cards', async () => {
+      test('should accept object params with templateId', async () => {
         const templateId = '0xtemplate';
         global.fetch.mockResolvedValueOnce({
           ok: true,
           json: () => Promise.resolve({ keys: [{ id: '1' }, { id: '2' }] })
         });
 
-        const result = await client.accessCards.list(templateId);
+        const result = await client.accessCards.list({ templateId });
 
         expect(fetch).toHaveBeenCalledWith(
           expect.stringContaining(`/v1/key-cards?template_id=${templateId}`),
@@ -244,7 +244,7 @@ describe('AccessGrid SDK', () => {
         expect(result[0]).toBeInstanceOf(AccessCard);
       });
 
-      test('should filter by state', async () => {
+      test('should filter by state with object params', async () => {
         const templateId = '0xtemplate';
         const state = 'active';
         global.fetch.mockResolvedValueOnce({
@@ -252,10 +252,28 @@ describe('AccessGrid SDK', () => {
           json: () => Promise.resolve({ keys: [{ id: '1' }] })
         });
 
-        await client.accessCards.list(templateId, state);
+        await client.accessCards.list({ templateId, state });
 
         expect(fetch).toHaveBeenCalledWith(
-          expect.stringContaining(`template_id=${templateId}&state=${state}`),
+          expect.stringContaining(`template_id=${templateId}`),
+          expect.anything()
+        );
+        expect(fetch).toHaveBeenCalledWith(
+          expect.stringContaining(`state=${state}`),
+          expect.anything()
+        );
+      });
+
+      test('should filter by state only', async () => {
+        global.fetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ keys: [{ id: '1' }] })
+        });
+
+        await client.accessCards.list({ state: 'active' });
+
+        expect(fetch).toHaveBeenCalledWith(
+          expect.stringContaining('state=active'),
           expect.anything()
         );
       });
@@ -317,25 +335,22 @@ describe('AccessGrid SDK', () => {
   describe('Console API', () => {
     describe('createTemplate', () => {
       const mockTemplateParams = {
-        name: 'Employee NFC key',
+        name: 'Employee Access Pass',
         platform: 'apple',
         useCase: 'employee_badge',
         protocol: 'desfire',
         allowOnMultipleDevices: true,
         watchCount: 2,
         iphoneCount: 3,
-        design: {
-          backgroundColor: '#FFFFFF',
-          labelColor: '#000000',
-          labelSecondaryColor: '#333333'
-        },
-        supportInfo: {
-          supportUrl: 'https://help.yourcompany.com',
-          supportPhoneNumber: '+1-555-123-4567',
-          supportEmail: 'support@yourcompany.com',
-          privacyPolicyUrl: 'https://yourcompany.com/privacy',
-          termsAndConditionsUrl: 'https://yourcompany.com/terms'
-        }
+        backgroundColor: '#FFFFFF',
+        labelColor: '#000000',
+        labelSecondaryColor: '#333333',
+        supportUrl: 'https://help.yourcompany.com',
+        supportPhoneNumber: '+1-555-123-4567',
+        supportEmail: 'support@yourcompany.com',
+        privacyPolicyUrl: 'https://yourcompany.com/privacy',
+        termsAndConditionsUrl: 'https://yourcompany.com/terms',
+        metadata: { version: '2.1', approvalStatus: 'approved' }
       };
 
       test('should make correct API call for creating template', async () => {
@@ -343,7 +358,7 @@ describe('AccessGrid SDK', () => {
           ok: true,
           json: () => Promise.resolve({
             id: 'template-123',
-            name: 'Employee NFC key'
+            name: 'Employee Access Pass'
           })
         });
 
@@ -361,6 +376,33 @@ describe('AccessGrid SDK', () => {
         );
         expect(result).toBeInstanceOf(Template);
       });
+
+      test('should send flat params as snake_case in body', async () => {
+        global.fetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ id: 'template-123' })
+        });
+
+        await client.console.createTemplate(mockTemplateParams);
+
+        const callBody = JSON.parse(fetch.mock.calls[0][1].body);
+        expect(callBody.name).toBe('Employee Access Pass');
+        expect(callBody.platform).toBe('apple');
+        expect(callBody.use_case).toBe('employee_badge');
+        expect(callBody.protocol).toBe('desfire');
+        expect(callBody.allow_on_multiple_devices).toBe(true);
+        expect(callBody.watch_count).toBe(2);
+        expect(callBody.iphone_count).toBe(3);
+        expect(callBody.background_color).toBe('#FFFFFF');
+        expect(callBody.label_color).toBe('#000000');
+        expect(callBody.label_secondary_color).toBe('#333333');
+        expect(callBody.support_url).toBe('https://help.yourcompany.com');
+        expect(callBody.support_phone_number).toBe('+1-555-123-4567');
+        expect(callBody.support_email).toBe('support@yourcompany.com');
+        expect(callBody.privacy_policy_url).toBe('https://yourcompany.com/privacy');
+        expect(callBody.terms_and_conditions_url).toBe('https://yourcompany.com/terms');
+        expect(callBody.metadata).toEqual({ version: '2.1', approvalStatus: 'approved' });
+      });
     });
 
     describe('updateTemplate', () => {
@@ -371,13 +413,15 @@ describe('AccessGrid SDK', () => {
         allowOnMultipleDevices: false,
         watchCount: 1,
         iphoneCount: 2,
-        supportInfo: {
-          supportUrl: 'https://help.example.com',
-          supportPhoneNumber: '+1-555-999-0000',
-          supportEmail: 'help@example.com',
-          privacyPolicyUrl: 'https://example.com/privacy',
-          termsAndConditionsUrl: 'https://example.com/terms'
-        }
+        backgroundColor: '#FFFFFF',
+        labelColor: '#000000',
+        labelSecondaryColor: '#333333',
+        supportUrl: 'https://help.example.com',
+        supportPhoneNumber: '+1-555-999-0000',
+        supportEmail: 'help@example.com',
+        privacyPolicyUrl: 'https://example.com/privacy',
+        termsAndConditionsUrl: 'https://example.com/terms',
+        metadata: { version: '2.2', lastUpdatedBy: 'admin' }
       };
 
       test('should make correct API call with PUT', async () => {
@@ -413,11 +457,15 @@ describe('AccessGrid SDK', () => {
         expect(callBody.allow_on_multiple_devices).toBe(false);
         expect(callBody.watch_count).toBe(1);
         expect(callBody.iphone_count).toBe(2);
+        expect(callBody.background_color).toBe('#FFFFFF');
+        expect(callBody.label_color).toBe('#000000');
+        expect(callBody.label_secondary_color).toBe('#333333');
         expect(callBody.support_url).toBe('https://help.example.com');
         expect(callBody.support_phone_number).toBe('+1-555-999-0000');
         expect(callBody.support_email).toBe('help@example.com');
         expect(callBody.privacy_policy_url).toBe('https://example.com/privacy');
         expect(callBody.terms_and_conditions_url).toBe('https://example.com/terms');
+        expect(callBody.metadata).toEqual({ version: '2.2', lastUpdatedBy: 'admin' });
       });
 
       test('should return a Template instance', async () => {
@@ -708,6 +756,30 @@ describe('AccessGrid SDK', () => {
       expect(info.platform).toBe('apple');
     });
 
+    test('HIDOrg should have correct properties', () => {
+      const org = new HIDOrg({
+        id: 'org-1',
+        name: 'My Org',
+        slug: 'my-org',
+        first_name: 'Ada',
+        last_name: 'Lovelace',
+        phone: '+1-555-0000',
+        full_address: '1 Main St, NY NY',
+        status: 'active',
+        created_at: '2025-01-01T00:00:00Z'
+      });
+
+      expect(org.id).toBe('org-1');
+      expect(org.name).toBe('My Org');
+      expect(org.slug).toBe('my-org');
+      expect(org.firstName).toBe('Ada');
+      expect(org.lastName).toBe('Lovelace');
+      expect(org.phone).toBe('+1-555-0000');
+      expect(org.fullAddress).toBe('1 Main St, NY NY');
+      expect(org.status).toBe('active');
+      expect(org.createdAt).toBe('2025-01-01T00:00:00Z');
+    });
+
     test('LedgerItem should deserialize with nested access pass and template', () => {
       const item = new LedgerItem({
         id: 'li-1',
@@ -794,6 +866,43 @@ describe('AccessGrid SDK', () => {
       });
 
       expect(item.accessPass).toBeNull();
+    });
+
+    test('Template should have metadata property', () => {
+      const template = new Template({
+        id: 'template-123',
+        name: 'Test Template',
+        metadata: { department: 'engineering' }
+      });
+
+      expect(template.metadata).toEqual({ department: 'engineering' });
+    });
+
+    test('Template should have allowOnMultipleDevices property', () => {
+      const template = new Template({
+        id: 'template-123',
+        allowed_device_counts: { iphone: 3, watch: 1 }
+      });
+
+      expect(template.allowOnMultipleDevices).toBe(true);
+    });
+
+    test('Template should have allowOnMultipleDevices false when counts are 1', () => {
+      const template = new Template({
+        id: 'template-123',
+        allowed_device_counts: { iphone: 1, watch: 0 }
+      });
+
+      expect(template.allowOnMultipleDevices).toBe(false);
+    });
+
+    test('AccessCard should have title property', () => {
+      const card = new AccessCard({
+        id: 'card-123',
+        title: 'Engineering Manager'
+      });
+
+      expect(card.title).toBe('Engineering Manager');
     });
   });
 
@@ -980,6 +1089,221 @@ describe('AccessGrid SDK', () => {
         total_pages: 3,
         total_count: 125
       });
+    });
+  });
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // HID Orgs API
+  // ════════════════════════════════════════════════════════════════════════════
+
+  describe('HID Orgs API', () => {
+    describe('create', () => {
+      test('should make correct API call', async () => {
+        const mockResponse = {
+          id: 'org-1', name: 'My Org', slug: 'my-org',
+          first_name: 'Ada', last_name: 'Lovelace',
+          phone: '+1-555-0000', full_address: '1 Main St, NY NY',
+          status: 'pending', created_at: '2025-01-01T00:00:00Z'
+        };
+        global.fetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(mockResponse)
+        });
+
+        const org = await client.console.hid.orgs.create({
+          name: 'My Org',
+          fullAddress: '1 Main St, NY NY',
+          phone: '+1-555-0000',
+          firstName: 'Ada',
+          lastName: 'Lovelace'
+        });
+
+        expect(fetch).toHaveBeenCalledWith(
+          expect.stringContaining('/v1/console/hid/orgs'),
+          expect.objectContaining({ method: 'POST' })
+        );
+        expect(org).toBeInstanceOf(HIDOrg);
+        expect(org.name).toBe('My Org');
+        expect(org.slug).toBe('my-org');
+      });
+
+      test('should send snake_case params', async () => {
+        global.fetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ id: 'org-1' })
+        });
+
+        await client.console.hid.orgs.create({
+          name: 'My Org',
+          fullAddress: '1 Main St',
+          phone: '+1-555-0000',
+          firstName: 'Ada',
+          lastName: 'Lovelace'
+        });
+
+        const callBody = JSON.parse(fetch.mock.calls[0][1].body);
+        expect(callBody.name).toBe('My Org');
+        expect(callBody.full_address).toBe('1 Main St');
+        expect(callBody.first_name).toBe('Ada');
+        expect(callBody.last_name).toBe('Lovelace');
+      });
+    });
+
+    describe('list', () => {
+      test('should return array of HIDOrg instances', async () => {
+        global.fetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({
+            hid_orgs: [
+              { id: 'org-1', name: 'Org 1', slug: 'org-1' },
+              { id: 'org-2', name: 'Org 2', slug: 'org-2' }
+            ]
+          })
+        });
+
+        const orgs = await client.console.hid.orgs.list();
+
+        expect(fetch).toHaveBeenCalledWith(
+          expect.stringContaining('/v1/console/hid/orgs'),
+          expect.objectContaining({ method: 'GET' })
+        );
+        expect(orgs).toHaveLength(2);
+        expect(orgs[0]).toBeInstanceOf(HIDOrg);
+      });
+    });
+
+    describe('activate', () => {
+      test('should make correct API call', async () => {
+        global.fetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ id: 'org-1', name: 'My Org', status: 'active' })
+        });
+
+        const result = await client.console.hid.orgs.activate({
+          email: 'admin@example.com',
+          password: 'hid-password-123'
+        });
+
+        expect(fetch).toHaveBeenCalledWith(
+          expect.stringContaining('/v1/console/hid/orgs/activate'),
+          expect.objectContaining({ method: 'POST' })
+        );
+        expect(result).toBeInstanceOf(HIDOrg);
+        expect(result.status).toBe('active');
+      });
+    });
+  });
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // iOS Preflight
+  // ════════════════════════════════════════════════════════════════════════════
+
+  describe('iOS Preflight', () => {
+    test('should make correct API call', async () => {
+      const mockResponse = {
+        provisioning_credential_identifier: 'pci-123',
+        sharing_instance_identifier: 'sii-456',
+        card_template_identifier: 'cti-789',
+        environment_identifier: 'env-abc'
+      };
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockResponse)
+      });
+
+      const result = await client.console.iosPreflight({
+        cardTemplateId: '0xt3mp14t3',
+        accessPassExId: '0xp455'
+      });
+
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/v1/console/card-templates/0xt3mp14t3/ios_preflight'),
+        expect.objectContaining({ method: 'POST' })
+      );
+      expect(result.provisioningCredentialIdentifier).toBe('pci-123');
+      expect(result.sharingInstanceIdentifier).toBe('sii-456');
+      expect(result.cardTemplateIdentifier).toBe('cti-789');
+      expect(result.environmentIdentifier).toBe('env-abc');
+    });
+  });
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // Ledger Items (legacy)
+  // ════════════════════════════════════════════════════════════════════════════
+
+  describe('Ledger Items', () => {
+    test('should make correct API call with pagination', async () => {
+      const mockResponse = {
+        ledger_items: [
+          { id: 'li-1', amount: '1.50', kind: 'issuance', created_at: '2025-01-01T00:00:00Z' },
+          { id: 'li-2', amount: '0.50', kind: 'activation', created_at: '2025-01-02T00:00:00Z' }
+        ],
+        pagination: { current_page: 1, total_pages: 3, total_count: 50 }
+      };
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockResponse)
+      });
+
+      const result = await client.console.ledgerItems({
+        page: 1,
+        perPage: 50,
+        startDate: '2025-01-01T00:00:00Z',
+        endDate: '2025-02-01T00:00:00Z'
+      });
+
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/v1/console/ledger-items'),
+        expect.objectContaining({ method: 'GET' })
+      );
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('page=1'),
+        expect.anything()
+      );
+      expect(result.ledgerItems).toHaveLength(2);
+      expect(result.ledgerItems[0]).toBeInstanceOf(LedgerItem);
+      expect(result.pagination).toBeDefined();
+    });
+  });
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // Provision with new fields
+  // ════════════════════════════════════════════════════════════════════════════
+
+  describe('Provision with title and metadata', () => {
+    test('should include title and metadata in request body', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ id: 'card-123', title: 'Engineering Manager' })
+      });
+
+      await client.accessCards.provision({
+        cardTemplateId: '0xd3adb00b5',
+        fullName: 'Test User',
+        startDate: '2025-01-01T00:00:00Z',
+        expirationDate: '2025-12-31T00:00:00Z',
+        title: 'Engineering Manager',
+        metadata: { department: 'engineering', badgeType: 'contractor' }
+      });
+
+      const callBody = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(callBody.title).toBe('Engineering Manager');
+      expect(callBody.metadata).toEqual({ department: 'engineering', badgeType: 'contractor' });
+    });
+
+    test('should include title in update request body', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ id: 'card-123' })
+      });
+
+      await client.accessCards.update({
+        cardId: '0xc4rd1d',
+        title: 'Senior Developer'
+      });
+
+      const callBody = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(callBody.title).toBe('Senior Developer');
     });
   });
 });

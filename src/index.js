@@ -28,6 +28,7 @@ class AccessCard {
     this.siteCode = data.site_code;
     this.fileData = data.file_data;
     this.directInstallUrl = data.direct_install_url;
+    this.title = data.title;
     this.devices = data.devices || [];
     this.metadata = data.metadata || {};
   }
@@ -53,6 +54,33 @@ class Template {
     this.supportSettings = data.support_settings;
     this.termsSettings = data.terms_settings;
     this.styleSettings = data.style_settings;
+    this.metadata = data.metadata;
+
+    // Convenience: derive allowOnMultipleDevices from allowed_device_counts
+    if (this.allowedDeviceCounts) {
+      const total = Object.values(this.allowedDeviceCounts).reduce(
+        (sum, v) => sum + (v || 0),
+        0,
+      );
+      this.allowOnMultipleDevices = total > 1;
+    } else {
+      this.allowOnMultipleDevices = undefined;
+    }
+  }
+}
+
+// HIDOrg model class
+class HIDOrg {
+  constructor(data = {}) {
+    this.id = data.id;
+    this.name = data.name;
+    this.slug = data.slug;
+    this.firstName = data.first_name;
+    this.lastName = data.last_name;
+    this.phone = data.phone;
+    this.fullAddress = data.full_address;
+    this.status = data.status;
+    this.createdAt = data.created_at;
   }
 }
 
@@ -298,6 +326,9 @@ class AccessCardsApi extends BaseApi {
       fileData: "file_data",
       email: "email",
       classification: "classification",
+      title: "title",
+      organizationName: "organization_name",
+      metadata: "metadata",
     };
 
     // Add any params that exist to the request body
@@ -349,6 +380,9 @@ class AccessCardsApi extends BaseApi {
       classification: "classification",
       expirationDate: "expiration_date",
       employeePhoto: "employee_photo",
+      title: "title",
+      organizationName: "organization_name",
+      metadata: "metadata",
       // Hotel-specific parameters
       memberId: "member_id",
       membershipStatus: "membership_status",
@@ -376,13 +410,14 @@ class AccessCardsApi extends BaseApi {
     return new AccessCard(response);
   }
 
-  async list(templateId, state = null) {
-    const params = new URLSearchParams({ template_id: templateId });
-    if (state) {
-      params.append("state", state);
-    }
+  async list(params = {}) {
+    const queryParams = new URLSearchParams();
+    if (params.templateId) queryParams.append("template_id", params.templateId);
+    if (params.state) queryParams.append("state", params.state);
 
-    const response = await this.request(`/v1/key-cards?${params.toString()}`);
+    const response = await this.request(
+      `/v1/key-cards?${queryParams.toString()}`,
+    );
     return (response.keys || []).map((item) => new AccessCard(item));
   }
 
@@ -414,48 +449,55 @@ class AccessCardsApi extends BaseApi {
 class ConsoleApi extends BaseApi {
   constructor(accountId, secretKey, baseUrl) {
     super(accountId, secretKey, baseUrl);
+    this.hid = {
+      orgs: new HIDOrgsApi(accountId, secretKey, baseUrl),
+    };
+  }
+
+  _buildTemplateBody(params) {
+    const paramMapping = {
+      name: "name",
+      platform: "platform",
+      useCase: "use_case",
+      protocol: "protocol",
+      allowOnMultipleDevices: "allow_on_multiple_devices",
+      watchCount: "watch_count",
+      iphoneCount: "iphone_count",
+      backgroundColor: "background_color",
+      labelColor: "label_color",
+      labelSecondaryColor: "label_secondary_color",
+      supportUrl: "support_url",
+      supportPhoneNumber: "support_phone_number",
+      supportEmail: "support_email",
+      privacyPolicyUrl: "privacy_policy_url",
+      termsAndConditionsUrl: "terms_and_conditions_url",
+      metadata: "metadata",
+    };
+
+    const body = {};
+    for (const [jsKey, apiKey] of Object.entries(paramMapping)) {
+      if (params[jsKey] !== undefined) {
+        body[apiKey] = params[jsKey];
+      }
+    }
+    return body;
   }
 
   async createTemplate(params) {
     const response = await this.request("/v1/console/card-templates", {
       method: "POST",
-      body: {
-        name: params.name,
-        platform: params.platform,
-        use_case: params.useCase,
-        protocol: params.protocol,
-        allow_on_multiple_devices: params.allowOnMultipleDevices,
-        watch_count: params.watchCount,
-        iphone_count: params.iphoneCount,
-        background_color: params.design?.backgroundColor,
-        label_color: params.design?.labelColor,
-        label_secondary_color: params.design?.labelSecondaryColor,
-        support_url: params.supportInfo?.supportUrl,
-        support_phone_number: params.supportInfo?.supportPhoneNumber,
-        support_email: params.supportInfo?.supportEmail,
-        privacy_policy_url: params.supportInfo?.privacyPolicyUrl,
-        terms_and_conditions_url: params.supportInfo?.termsAndConditionsUrl,
-      },
+      body: this._buildTemplateBody(params),
     });
     return new Template(response);
   }
 
   async updateTemplate(params) {
+    const body = this._buildTemplateBody(params);
     const response = await this.request(
       `/v1/console/card-templates/${params.cardTemplateId}`,
       {
         method: "PUT",
-        body: {
-          name: params.name,
-          allow_on_multiple_devices: params.allowOnMultipleDevices,
-          watch_count: params.watchCount,
-          iphone_count: params.iphoneCount,
-          support_url: params.supportInfo?.supportUrl,
-          support_phone_number: params.supportInfo?.supportPhoneNumber,
-          support_email: params.supportInfo?.supportEmail,
-          privacy_policy_url: params.supportInfo?.privacyPolicyUrl,
-          terms_and_conditions_url: params.supportInfo?.termsAndConditionsUrl,
-        },
+        body,
       },
     );
     return new Template(response);
@@ -489,6 +531,50 @@ class ConsoleApi extends BaseApi {
   // Alias for getEventLogs for backwards compatibility
   async eventLog(params) {
     return this.getEventLogs(params);
+  }
+
+  async iosPreflight(params) {
+    const body = {};
+    if (params.accessPassExId) body.access_pass_ex_id = params.accessPassExId;
+
+    const response = await this.request(
+      `/v1/console/card-templates/${params.cardTemplateId}/ios_preflight`,
+      { method: "POST", body },
+    );
+
+    return {
+      provisioningCredentialIdentifier:
+        response.provisioning_credential_identifier,
+      sharingInstanceIdentifier: response.sharing_instance_identifier,
+      cardTemplateIdentifier: response.card_template_identifier,
+      environmentIdentifier: response.environment_identifier,
+    };
+  }
+
+  async ledgerItems(params = {}) {
+    const queryParams = new URLSearchParams();
+    if (params.page) queryParams.append("page", params.page);
+    if (params.perPage) queryParams.append("per_page", params.perPage);
+    if (params.startDate) queryParams.append("start_date", params.startDate);
+    if (params.endDate) queryParams.append("end_date", params.endDate);
+
+    const queryString = queryParams.toString();
+    const path = queryString
+      ? `/v1/console/ledger-items?${queryString}`
+      : "/v1/console/ledger-items";
+
+    const response = await this.request(path);
+
+    const result = {};
+    if (response.ledger_items) {
+      result.ledgerItems = response.ledger_items.map(
+        (item) => new LedgerItem(item),
+      );
+    }
+    if (response.pagination) {
+      result.pagination = response.pagination;
+    }
+    return result;
   }
 
   async listPassTemplatePairs(params = {}) {
@@ -538,6 +624,45 @@ class ConsoleApi extends BaseApi {
   }
 }
 
+// HID Orgs API handling
+class HIDOrgsApi extends BaseApi {
+  constructor(accountId, secretKey, baseUrl) {
+    super(accountId, secretKey, baseUrl);
+  }
+
+  async create(params) {
+    const body = {
+      name: params.name,
+      full_address: params.fullAddress,
+      phone: params.phone,
+      first_name: params.firstName,
+      last_name: params.lastName,
+    };
+
+    const response = await this.request("/v1/console/hid/orgs", {
+      method: "POST",
+      body,
+    });
+    return new HIDOrg(response);
+  }
+
+  async list() {
+    const response = await this.request("/v1/console/hid/orgs");
+    return (response.hid_orgs || []).map((org) => new HIDOrg(org));
+  }
+
+  async activate(params) {
+    const response = await this.request("/v1/console/hid/orgs/activate", {
+      method: "POST",
+      body: {
+        email: params.email,
+        password: params.password,
+      },
+    });
+    return new HIDOrg(response);
+  }
+}
+
 // Main AccessGrid class
 class AccessGrid {
   constructor(accountId, secretKey, options = {}) {
@@ -560,6 +685,7 @@ export {
   Template,
   PassTemplatePair,
   TemplateInfo,
+  HIDOrg,
   LedgerItem,
   LedgerItemAccessPass,
   LedgerItemPassTemplate,
