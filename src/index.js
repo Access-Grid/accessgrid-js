@@ -56,6 +56,42 @@ class Template {
   }
 }
 
+// HIDOrg model class
+class HIDOrg {
+  constructor(data = {}) {
+    this.id = data.id;
+    this.name = data.name;
+    this.slug = data.slug;
+    this.firstName = data.first_name;
+    this.lastName = data.last_name;
+    this.phone = data.phone;
+    this.fullAddress = data.full_address;
+    this.status = data.status;
+    this.createdAt = data.created_at;
+  }
+}
+
+// LedgerItem model class
+class LedgerItem {
+  constructor(data = {}) {
+    this.id = data.id;
+    this.amount = data.amount;
+    this.kind = data.kind;
+    this.createdAt = data.created_at;
+
+    if (data.access_pass) {
+      this.accessPass = {
+        exId: data.access_pass.ex_id,
+        passTemplate: data.access_pass.pass_template
+          ? { exId: data.access_pass.pass_template.ex_id }
+          : null,
+      };
+    } else {
+      this.accessPass = null;
+    }
+  }
+}
+
 // PassTemplatePair model class
 class PassTemplatePair {
   constructor(data = {}) {
@@ -375,6 +411,9 @@ class AccessCardsApi extends BaseApi {
 class ConsoleApi extends BaseApi {
   constructor(accountId, secretKey, baseUrl) {
     super(accountId, secretKey, baseUrl);
+    this.hid = {
+      orgs: new HIDOrgsApi(accountId, secretKey, baseUrl),
+    };
   }
 
   async createTemplate(params) {
@@ -452,6 +491,52 @@ class ConsoleApi extends BaseApi {
     return this.getEventLogs(params);
   }
 
+  async iosPreflight(params) {
+    const body = {};
+    if (params.accessPassExId)
+      body.access_pass_ex_id = params.accessPassExId;
+
+    const response = await this.request(
+      `/v1/console/card-templates/${params.cardTemplateId}/ios_preflight`,
+      { method: "POST", body },
+    );
+
+    return {
+      provisioningCredentialIdentifier:
+        response.provisioning_credential_identifier,
+      sharingInstanceIdentifier: response.sharing_instance_identifier,
+      cardTemplateIdentifier: response.card_template_identifier,
+      environmentIdentifier: response.environment_identifier,
+    };
+  }
+
+  async ledgerItems(params = {}) {
+    const queryParams = new URLSearchParams();
+    if (params.page) queryParams.append("page", params.page);
+    if (params.perPage) queryParams.append("per_page", params.perPage);
+    if (params.startDate)
+      queryParams.append("start_date", params.startDate);
+    if (params.endDate) queryParams.append("end_date", params.endDate);
+
+    const queryString = queryParams.toString();
+    const path = queryString
+      ? `/v1/console/ledger-items?${queryString}`
+      : "/v1/console/ledger-items";
+
+    const response = await this.request(path);
+
+    const result = {};
+    if (response.ledger_items) {
+      result.ledgerItems = response.ledger_items.map(
+        (item) => new LedgerItem(item),
+      );
+    }
+    if (response.pagination) {
+      result.pagination = response.pagination;
+    }
+    return result;
+  }
+
   async listPassTemplatePairs(params = {}) {
     const queryParams = new URLSearchParams();
     if (params.page) queryParams.append("page", params.page);
@@ -472,6 +557,45 @@ class ConsoleApi extends BaseApi {
     }
 
     return response;
+  }
+}
+
+// HID Orgs API handling
+class HIDOrgsApi extends BaseApi {
+  constructor(accountId, secretKey, baseUrl) {
+    super(accountId, secretKey, baseUrl);
+  }
+
+  async create(params) {
+    const body = {
+      name: params.name,
+      full_address: params.fullAddress,
+      phone: params.phone,
+      first_name: params.firstName,
+      last_name: params.lastName,
+    };
+
+    const response = await this.request("/v1/console/hid/orgs", {
+      method: "POST",
+      body,
+    });
+    return new HIDOrg(response);
+  }
+
+  async list() {
+    const response = await this.request("/v1/console/hid/orgs");
+    return (response.hid_orgs || []).map((org) => new HIDOrg(org));
+  }
+
+  async activate(params) {
+    const response = await this.request("/v1/console/hid/orgs/activate", {
+      method: "POST",
+      body: {
+        email: params.email,
+        password: params.password,
+      },
+    });
+    return new HIDOrg(response);
   }
 }
 
@@ -497,6 +621,8 @@ export {
   Template,
   PassTemplatePair,
   TemplateInfo,
+  HIDOrg,
+  LedgerItem,
 };
 
 // Default export

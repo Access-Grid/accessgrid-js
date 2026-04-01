@@ -1,4 +1,4 @@
-import AccessGrid, { AccessGridError, AuthenticationError, AccessCard, Template, PassTemplatePair, TemplateInfo } from '../src/index';
+import AccessGrid, { AccessGridError, AuthenticationError, AccessCard, Template, PassTemplatePair, TemplateInfo, HIDOrg, LedgerItem } from '../src/index';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Global mocks
@@ -706,6 +706,224 @@ describe('AccessGrid SDK', () => {
       expect(info.id).toBe('tmpl-1');
       expect(info.name).toBe('Employee Badge');
       expect(info.platform).toBe('apple');
+    });
+
+    test('HIDOrg should have correct properties', () => {
+      const org = new HIDOrg({
+        id: 'org-1',
+        name: 'My Org',
+        slug: 'my-org',
+        first_name: 'Ada',
+        last_name: 'Lovelace',
+        phone: '+1-555-0000',
+        full_address: '1 Main St, NY NY',
+        status: 'active',
+        created_at: '2025-01-01T00:00:00Z'
+      });
+
+      expect(org.id).toBe('org-1');
+      expect(org.name).toBe('My Org');
+      expect(org.slug).toBe('my-org');
+      expect(org.firstName).toBe('Ada');
+      expect(org.lastName).toBe('Lovelace');
+      expect(org.phone).toBe('+1-555-0000');
+      expect(org.fullAddress).toBe('1 Main St, NY NY');
+      expect(org.status).toBe('active');
+      expect(org.createdAt).toBe('2025-01-01T00:00:00Z');
+    });
+
+    test('LedgerItem should have correct properties', () => {
+      const item = new LedgerItem({
+        id: 'li-1',
+        amount: '1.50',
+        kind: 'issuance',
+        created_at: '2025-01-01T00:00:00Z',
+        access_pass: {
+          ex_id: 'pass-1',
+          pass_template: { ex_id: 'tmpl-1' }
+        }
+      });
+
+      expect(item.id).toBe('li-1');
+      expect(item.amount).toBe('1.50');
+      expect(item.kind).toBe('issuance');
+      expect(item.createdAt).toBe('2025-01-01T00:00:00Z');
+      expect(item.accessPass.exId).toBe('pass-1');
+      expect(item.accessPass.passTemplate.exId).toBe('tmpl-1');
+    });
+  });
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // HID Orgs API
+  // ════════════════════════════════════════════════════════════════════════════
+
+  describe('HID Orgs API', () => {
+    describe('create', () => {
+      test('should make correct API call', async () => {
+        const mockResponse = {
+          id: 'org-1', name: 'My Org', slug: 'my-org',
+          first_name: 'Ada', last_name: 'Lovelace',
+          phone: '+1-555-0000', full_address: '1 Main St, NY NY',
+          status: 'pending', created_at: '2025-01-01T00:00:00Z'
+        };
+        global.fetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(mockResponse)
+        });
+
+        const org = await client.console.hid.orgs.create({
+          name: 'My Org',
+          fullAddress: '1 Main St, NY NY',
+          phone: '+1-555-0000',
+          firstName: 'Ada',
+          lastName: 'Lovelace'
+        });
+
+        expect(fetch).toHaveBeenCalledWith(
+          expect.stringContaining('/v1/console/hid/orgs'),
+          expect.objectContaining({ method: 'POST' })
+        );
+        expect(org).toBeInstanceOf(HIDOrg);
+        expect(org.name).toBe('My Org');
+        expect(org.slug).toBe('my-org');
+      });
+
+      test('should send snake_case params', async () => {
+        global.fetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ id: 'org-1' })
+        });
+
+        await client.console.hid.orgs.create({
+          name: 'My Org',
+          fullAddress: '1 Main St',
+          phone: '+1-555-0000',
+          firstName: 'Ada',
+          lastName: 'Lovelace'
+        });
+
+        const callBody = JSON.parse(fetch.mock.calls[0][1].body);
+        expect(callBody.name).toBe('My Org');
+        expect(callBody.full_address).toBe('1 Main St');
+        expect(callBody.first_name).toBe('Ada');
+        expect(callBody.last_name).toBe('Lovelace');
+      });
+    });
+
+    describe('list', () => {
+      test('should return array of HIDOrg instances', async () => {
+        global.fetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({
+            hid_orgs: [
+              { id: 'org-1', name: 'Org 1', slug: 'org-1' },
+              { id: 'org-2', name: 'Org 2', slug: 'org-2' }
+            ]
+          })
+        });
+
+        const orgs = await client.console.hid.orgs.list();
+
+        expect(fetch).toHaveBeenCalledWith(
+          expect.stringContaining('/v1/console/hid/orgs'),
+          expect.objectContaining({ method: 'GET' })
+        );
+        expect(orgs).toHaveLength(2);
+        expect(orgs[0]).toBeInstanceOf(HIDOrg);
+      });
+    });
+
+    describe('activate', () => {
+      test('should make correct API call', async () => {
+        global.fetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ id: 'org-1', name: 'My Org', status: 'active' })
+        });
+
+        const result = await client.console.hid.orgs.activate({
+          email: 'admin@example.com',
+          password: 'hid-password-123'
+        });
+
+        expect(fetch).toHaveBeenCalledWith(
+          expect.stringContaining('/v1/console/hid/orgs/activate'),
+          expect.objectContaining({ method: 'POST' })
+        );
+        expect(result).toBeInstanceOf(HIDOrg);
+        expect(result.status).toBe('active');
+      });
+    });
+  });
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // iOS Preflight
+  // ════════════════════════════════════════════════════════════════════════════
+
+  describe('iOS Preflight', () => {
+    test('should make correct API call', async () => {
+      const mockResponse = {
+        provisioning_credential_identifier: 'pci-123',
+        sharing_instance_identifier: 'sii-456',
+        card_template_identifier: 'cti-789',
+        environment_identifier: 'env-abc'
+      };
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockResponse)
+      });
+
+      const result = await client.console.iosPreflight({
+        cardTemplateId: '0xt3mp14t3',
+        accessPassExId: '0xp455'
+      });
+
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/v1/console/card-templates/0xt3mp14t3/ios_preflight'),
+        expect.objectContaining({ method: 'POST' })
+      );
+      expect(result.provisioningCredentialIdentifier).toBe('pci-123');
+      expect(result.sharingInstanceIdentifier).toBe('sii-456');
+      expect(result.cardTemplateIdentifier).toBe('cti-789');
+      expect(result.environmentIdentifier).toBe('env-abc');
+    });
+  });
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // Ledger Items
+  // ════════════════════════════════════════════════════════════════════════════
+
+  describe('Ledger Items', () => {
+    test('should make correct API call with pagination', async () => {
+      const mockResponse = {
+        ledger_items: [
+          { id: 'li-1', amount: '1.50', kind: 'issuance', created_at: '2025-01-01T00:00:00Z' },
+          { id: 'li-2', amount: '0.50', kind: 'activation', created_at: '2025-01-02T00:00:00Z' }
+        ],
+        pagination: { current_page: 1, total_pages: 3, total_count: 50 }
+      };
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockResponse)
+      });
+
+      const result = await client.console.ledgerItems({
+        page: 1,
+        perPage: 50,
+        startDate: '2025-01-01T00:00:00Z',
+        endDate: '2025-02-01T00:00:00Z'
+      });
+
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/v1/console/ledger-items'),
+        expect.objectContaining({ method: 'GET' })
+      );
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('page=1'),
+        expect.anything()
+      );
+      expect(result.ledgerItems).toHaveLength(2);
+      expect(result.ledgerItems[0]).toBeInstanceOf(LedgerItem);
+      expect(result.pagination).toBeDefined();
     });
   });
 });
