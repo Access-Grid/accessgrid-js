@@ -28,6 +28,7 @@ class AccessCard {
     this.siteCode = data.site_code;
     this.fileData = data.file_data;
     this.directInstallUrl = data.direct_install_url;
+    this.title = data.title;
     this.devices = data.devices || [];
     this.metadata = data.metadata || {};
   }
@@ -53,6 +54,18 @@ class Template {
     this.supportSettings = data.support_settings;
     this.termsSettings = data.terms_settings;
     this.styleSettings = data.style_settings;
+    this.metadata = data.metadata;
+
+    // Convenience: derive allowOnMultipleDevices from allowed_device_counts
+    if (this.allowedDeviceCounts) {
+      const total = Object.values(this.allowedDeviceCounts).reduce(
+        (sum, v) => sum + (v || 0),
+        0,
+      );
+      this.allowOnMultipleDevices = total > 1;
+    } else {
+      this.allowOnMultipleDevices = undefined;
+    }
   }
 }
 
@@ -295,6 +308,9 @@ class AccessCardsApi extends BaseApi {
       fileData: "file_data",
       email: "email",
       classification: "classification",
+      title: "title",
+      organizationName: "organization_name",
+      metadata: "metadata",
     };
 
     // Add any params that exist to the request body
@@ -346,6 +362,9 @@ class AccessCardsApi extends BaseApi {
       classification: "classification",
       expirationDate: "expiration_date",
       employeePhoto: "employee_photo",
+      title: "title",
+      organizationName: "organization_name",
+      metadata: "metadata",
       // Hotel-specific parameters
       memberId: "member_id",
       membershipStatus: "membership_status",
@@ -373,13 +392,14 @@ class AccessCardsApi extends BaseApi {
     return new AccessCard(response);
   }
 
-  async list(templateId, state = null) {
-    const params = new URLSearchParams({ template_id: templateId });
-    if (state) {
-      params.append("state", state);
-    }
+  async list(params = {}) {
+    const queryParams = new URLSearchParams();
+    if (params.templateId) queryParams.append("template_id", params.templateId);
+    if (params.state) queryParams.append("state", params.state);
 
-    const response = await this.request(`/v1/key-cards?${params.toString()}`);
+    const response = await this.request(
+      `/v1/key-cards?${queryParams.toString()}`,
+    );
     return (response.keys || []).map((item) => new AccessCard(item));
   }
 
@@ -416,46 +436,50 @@ class ConsoleApi extends BaseApi {
     };
   }
 
+  _buildTemplateBody(params) {
+    const paramMapping = {
+      name: "name",
+      platform: "platform",
+      useCase: "use_case",
+      protocol: "protocol",
+      allowOnMultipleDevices: "allow_on_multiple_devices",
+      watchCount: "watch_count",
+      iphoneCount: "iphone_count",
+      backgroundColor: "background_color",
+      labelColor: "label_color",
+      labelSecondaryColor: "label_secondary_color",
+      supportUrl: "support_url",
+      supportPhoneNumber: "support_phone_number",
+      supportEmail: "support_email",
+      privacyPolicyUrl: "privacy_policy_url",
+      termsAndConditionsUrl: "terms_and_conditions_url",
+      metadata: "metadata",
+    };
+
+    const body = {};
+    for (const [jsKey, apiKey] of Object.entries(paramMapping)) {
+      if (params[jsKey] !== undefined) {
+        body[apiKey] = params[jsKey];
+      }
+    }
+    return body;
+  }
+
   async createTemplate(params) {
     const response = await this.request("/v1/console/card-templates", {
       method: "POST",
-      body: {
-        name: params.name,
-        platform: params.platform,
-        use_case: params.useCase,
-        protocol: params.protocol,
-        allow_on_multiple_devices: params.allowOnMultipleDevices,
-        watch_count: params.watchCount,
-        iphone_count: params.iphoneCount,
-        background_color: params.design?.backgroundColor,
-        label_color: params.design?.labelColor,
-        label_secondary_color: params.design?.labelSecondaryColor,
-        support_url: params.supportInfo?.supportUrl,
-        support_phone_number: params.supportInfo?.supportPhoneNumber,
-        support_email: params.supportInfo?.supportEmail,
-        privacy_policy_url: params.supportInfo?.privacyPolicyUrl,
-        terms_and_conditions_url: params.supportInfo?.termsAndConditionsUrl,
-      },
+      body: this._buildTemplateBody(params),
     });
     return new Template(response);
   }
 
   async updateTemplate(params) {
+    const body = this._buildTemplateBody(params);
     const response = await this.request(
       `/v1/console/card-templates/${params.cardTemplateId}`,
       {
         method: "PUT",
-        body: {
-          name: params.name,
-          allow_on_multiple_devices: params.allowOnMultipleDevices,
-          watch_count: params.watchCount,
-          iphone_count: params.iphoneCount,
-          support_url: params.supportInfo?.supportUrl,
-          support_phone_number: params.supportInfo?.supportPhoneNumber,
-          support_email: params.supportInfo?.supportEmail,
-          privacy_policy_url: params.supportInfo?.privacyPolicyUrl,
-          terms_and_conditions_url: params.supportInfo?.termsAndConditionsUrl,
-        },
+        body,
       },
     );
     return new Template(response);

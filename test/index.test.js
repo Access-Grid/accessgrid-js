@@ -227,14 +227,14 @@ describe('AccessGrid SDK', () => {
     });
 
     describe('list', () => {
-      test('should make correct API call for listing cards', async () => {
+      test('should accept object params with templateId', async () => {
         const templateId = '0xtemplate';
         global.fetch.mockResolvedValueOnce({
           ok: true,
           json: () => Promise.resolve({ keys: [{ id: '1' }, { id: '2' }] })
         });
 
-        const result = await client.accessCards.list(templateId);
+        const result = await client.accessCards.list({ templateId });
 
         expect(fetch).toHaveBeenCalledWith(
           expect.stringContaining(`/v1/key-cards?template_id=${templateId}`),
@@ -244,7 +244,7 @@ describe('AccessGrid SDK', () => {
         expect(result[0]).toBeInstanceOf(AccessCard);
       });
 
-      test('should filter by state', async () => {
+      test('should filter by state with object params', async () => {
         const templateId = '0xtemplate';
         const state = 'active';
         global.fetch.mockResolvedValueOnce({
@@ -252,10 +252,28 @@ describe('AccessGrid SDK', () => {
           json: () => Promise.resolve({ keys: [{ id: '1' }] })
         });
 
-        await client.accessCards.list(templateId, state);
+        await client.accessCards.list({ templateId, state });
 
         expect(fetch).toHaveBeenCalledWith(
-          expect.stringContaining(`template_id=${templateId}&state=${state}`),
+          expect.stringContaining(`template_id=${templateId}`),
+          expect.anything()
+        );
+        expect(fetch).toHaveBeenCalledWith(
+          expect.stringContaining(`state=${state}`),
+          expect.anything()
+        );
+      });
+
+      test('should filter by state only', async () => {
+        global.fetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ keys: [{ id: '1' }] })
+        });
+
+        await client.accessCards.list({ state: 'active' });
+
+        expect(fetch).toHaveBeenCalledWith(
+          expect.stringContaining('state=active'),
           expect.anything()
         );
       });
@@ -317,25 +335,22 @@ describe('AccessGrid SDK', () => {
   describe('Console API', () => {
     describe('createTemplate', () => {
       const mockTemplateParams = {
-        name: 'Employee NFC key',
+        name: 'Employee Access Pass',
         platform: 'apple',
         useCase: 'employee_badge',
         protocol: 'desfire',
         allowOnMultipleDevices: true,
         watchCount: 2,
         iphoneCount: 3,
-        design: {
-          backgroundColor: '#FFFFFF',
-          labelColor: '#000000',
-          labelSecondaryColor: '#333333'
-        },
-        supportInfo: {
-          supportUrl: 'https://help.yourcompany.com',
-          supportPhoneNumber: '+1-555-123-4567',
-          supportEmail: 'support@yourcompany.com',
-          privacyPolicyUrl: 'https://yourcompany.com/privacy',
-          termsAndConditionsUrl: 'https://yourcompany.com/terms'
-        }
+        backgroundColor: '#FFFFFF',
+        labelColor: '#000000',
+        labelSecondaryColor: '#333333',
+        supportUrl: 'https://help.yourcompany.com',
+        supportPhoneNumber: '+1-555-123-4567',
+        supportEmail: 'support@yourcompany.com',
+        privacyPolicyUrl: 'https://yourcompany.com/privacy',
+        termsAndConditionsUrl: 'https://yourcompany.com/terms',
+        metadata: { version: '2.1', approvalStatus: 'approved' }
       };
 
       test('should make correct API call for creating template', async () => {
@@ -343,7 +358,7 @@ describe('AccessGrid SDK', () => {
           ok: true,
           json: () => Promise.resolve({
             id: 'template-123',
-            name: 'Employee NFC key'
+            name: 'Employee Access Pass'
           })
         });
 
@@ -361,6 +376,33 @@ describe('AccessGrid SDK', () => {
         );
         expect(result).toBeInstanceOf(Template);
       });
+
+      test('should send flat params as snake_case in body', async () => {
+        global.fetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ id: 'template-123' })
+        });
+
+        await client.console.createTemplate(mockTemplateParams);
+
+        const callBody = JSON.parse(fetch.mock.calls[0][1].body);
+        expect(callBody.name).toBe('Employee Access Pass');
+        expect(callBody.platform).toBe('apple');
+        expect(callBody.use_case).toBe('employee_badge');
+        expect(callBody.protocol).toBe('desfire');
+        expect(callBody.allow_on_multiple_devices).toBe(true);
+        expect(callBody.watch_count).toBe(2);
+        expect(callBody.iphone_count).toBe(3);
+        expect(callBody.background_color).toBe('#FFFFFF');
+        expect(callBody.label_color).toBe('#000000');
+        expect(callBody.label_secondary_color).toBe('#333333');
+        expect(callBody.support_url).toBe('https://help.yourcompany.com');
+        expect(callBody.support_phone_number).toBe('+1-555-123-4567');
+        expect(callBody.support_email).toBe('support@yourcompany.com');
+        expect(callBody.privacy_policy_url).toBe('https://yourcompany.com/privacy');
+        expect(callBody.terms_and_conditions_url).toBe('https://yourcompany.com/terms');
+        expect(callBody.metadata).toEqual({ version: '2.1', approvalStatus: 'approved' });
+      });
     });
 
     describe('updateTemplate', () => {
@@ -371,13 +413,15 @@ describe('AccessGrid SDK', () => {
         allowOnMultipleDevices: false,
         watchCount: 1,
         iphoneCount: 2,
-        supportInfo: {
-          supportUrl: 'https://help.example.com',
-          supportPhoneNumber: '+1-555-999-0000',
-          supportEmail: 'help@example.com',
-          privacyPolicyUrl: 'https://example.com/privacy',
-          termsAndConditionsUrl: 'https://example.com/terms'
-        }
+        backgroundColor: '#FFFFFF',
+        labelColor: '#000000',
+        labelSecondaryColor: '#333333',
+        supportUrl: 'https://help.example.com',
+        supportPhoneNumber: '+1-555-999-0000',
+        supportEmail: 'help@example.com',
+        privacyPolicyUrl: 'https://example.com/privacy',
+        termsAndConditionsUrl: 'https://example.com/terms',
+        metadata: { version: '2.2', lastUpdatedBy: 'admin' }
       };
 
       test('should make correct API call with PUT', async () => {
@@ -413,11 +457,15 @@ describe('AccessGrid SDK', () => {
         expect(callBody.allow_on_multiple_devices).toBe(false);
         expect(callBody.watch_count).toBe(1);
         expect(callBody.iphone_count).toBe(2);
+        expect(callBody.background_color).toBe('#FFFFFF');
+        expect(callBody.label_color).toBe('#000000');
+        expect(callBody.label_secondary_color).toBe('#333333');
         expect(callBody.support_url).toBe('https://help.example.com');
         expect(callBody.support_phone_number).toBe('+1-555-999-0000');
         expect(callBody.support_email).toBe('help@example.com');
         expect(callBody.privacy_policy_url).toBe('https://example.com/privacy');
         expect(callBody.terms_and_conditions_url).toBe('https://example.com/terms');
+        expect(callBody.metadata).toEqual({ version: '2.2', lastUpdatedBy: 'admin' });
       });
 
       test('should return a Template instance', async () => {
@@ -751,6 +799,43 @@ describe('AccessGrid SDK', () => {
       expect(item.accessPass.exId).toBe('pass-1');
       expect(item.accessPass.passTemplate.exId).toBe('tmpl-1');
     });
+
+    test('Template should have metadata property', () => {
+      const template = new Template({
+        id: 'template-123',
+        name: 'Test Template',
+        metadata: { department: 'engineering' }
+      });
+
+      expect(template.metadata).toEqual({ department: 'engineering' });
+    });
+
+    test('Template should have allowOnMultipleDevices property', () => {
+      const template = new Template({
+        id: 'template-123',
+        allowed_device_counts: { iphone: 3, watch: 1 }
+      });
+
+      expect(template.allowOnMultipleDevices).toBe(true);
+    });
+
+    test('Template should have allowOnMultipleDevices false when counts are 1', () => {
+      const template = new Template({
+        id: 'template-123',
+        allowed_device_counts: { iphone: 1, watch: 0 }
+      });
+
+      expect(template.allowOnMultipleDevices).toBe(false);
+    });
+
+    test('AccessCard should have title property', () => {
+      const card = new AccessCard({
+        id: 'card-123',
+        title: 'Engineering Manager'
+      });
+
+      expect(card.title).toBe('Engineering Manager');
+    });
   });
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -924,6 +1009,47 @@ describe('AccessGrid SDK', () => {
       expect(result.ledgerItems).toHaveLength(2);
       expect(result.ledgerItems[0]).toBeInstanceOf(LedgerItem);
       expect(result.pagination).toBeDefined();
+    });
+  });
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // Provision with new fields
+  // ════════════════════════════════════════════════════════════════════════════
+
+  describe('Provision with title and metadata', () => {
+    test('should include title and metadata in request body', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ id: 'card-123', title: 'Engineering Manager' })
+      });
+
+      await client.accessCards.provision({
+        cardTemplateId: '0xd3adb00b5',
+        fullName: 'Test User',
+        startDate: '2025-01-01T00:00:00Z',
+        expirationDate: '2025-12-31T00:00:00Z',
+        title: 'Engineering Manager',
+        metadata: { department: 'engineering', badgeType: 'contractor' }
+      });
+
+      const callBody = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(callBody.title).toBe('Engineering Manager');
+      expect(callBody.metadata).toEqual({ department: 'engineering', badgeType: 'contractor' });
+    });
+
+    test('should include title in update request body', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ id: 'card-123' })
+      });
+
+      await client.accessCards.update({
+        cardId: '0xc4rd1d',
+        title: 'Senior Developer'
+      });
+
+      const callBody = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(callBody.title).toBe('Senior Developer');
     });
   });
 });
