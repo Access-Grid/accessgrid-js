@@ -493,8 +493,7 @@ class ConsoleApi extends BaseApi {
 
   async iosPreflight(params) {
     const body = {};
-    if (params.accessPassExId)
-      body.access_pass_ex_id = params.accessPassExId;
+    if (params.accessPassExId) body.access_pass_ex_id = params.accessPassExId;
 
     const response = await this.request(
       `/v1/console/card-templates/${params.cardTemplateId}/ios_preflight`,
@@ -514,8 +513,7 @@ class ConsoleApi extends BaseApi {
     const queryParams = new URLSearchParams();
     if (params.page) queryParams.append("page", params.page);
     if (params.perPage) queryParams.append("per_page", params.perPage);
-    if (params.startDate)
-      queryParams.append("start_date", params.startDate);
+    if (params.startDate) queryParams.append("start_date", params.startDate);
     if (params.endDate) queryParams.append("end_date", params.endDate);
 
     const queryString = queryParams.toString();
