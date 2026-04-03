@@ -35,6 +35,12 @@ const card = await client.accessCards.provision({
   email: "employee@yourwebsite.com",
   phoneNumber: "+19547212241",
   classification: "full_time",
+  department: "Engineering",
+  location: "San Francisco",
+  siteName: "HQ Building A",
+  workstation: "4F-207",
+  mailStop: "MS-401",
+  companyAddress: "123 Main St, San Francisco, CA 94105",
   startDate: new Date().toISOString(),
   expirationDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
   employeePhoto: "[image_in_base64_encoded_format]",
@@ -290,6 +296,37 @@ console.log(`Status: ${result.status}`);
 
 ### Webhooks
 
+#### Create a webhook
+
+```javascript
+const webhook = await client.console.webhooks.create({
+  name: 'Production',
+  url: 'https://example.com/webhooks',
+  subscribedEvents: ['ag.access_pass.issued']
+});
+
+console.log(`Webhook created: ${webhook.id}`);
+console.log(`Private key: ${webhook.privateKey}`);
+```
+
+#### List webhooks
+
+```javascript
+const webhooks = await client.console.webhooks.list();
+
+webhooks.forEach(webhook => {
+  console.log(`ID: ${webhook.id}, Name: ${webhook.name}`);
+});
+```
+
+#### Delete a webhook
+
+```javascript
+await client.console.webhooks.delete('abc123');
+```
+
+#### Receiving webhook payloads
+
 ```javascript
 const express = require('express');
 const app = express();
@@ -319,6 +356,77 @@ app.post('/webhooks', (req, res) => {
 
   res.status(200).json({ received: true });
 });
+```
+
+### Landing Pages
+
+#### List landing pages
+
+```javascript
+const landingPages = await client.console.listLandingPages();
+
+landingPages.forEach(page => {
+  console.log(`ID: ${page.id}, Name: ${page.name}, Kind: ${page.kind}`);
+  console.log(`  Password Protected: ${page.passwordProtected}`);
+  if (page.logoUrl) console.log(`  Logo URL: ${page.logoUrl}`);
+});
+```
+
+#### Create a landing page
+
+```javascript
+const landingPage = await client.console.createLandingPage({
+  name: "Miami Office Access Pass",
+  kind: "universal",
+  additionalText: "Welcome to the Miami Office",
+  bgColor: "#f1f5f9",
+  allowImmediateDownload: true
+});
+
+console.log(`Landing page created: ${landingPage.id}`);
+console.log(`Name: ${landingPage.name}, Kind: ${landingPage.kind}`);
+```
+
+#### Update a landing page
+
+```javascript
+const landingPage = await client.console.updateLandingPage({
+  landingPageId: "0xlandingpage1d",
+  name: "Updated Miami Office Access Pass",
+  additionalText: "Welcome! Tap below to get your access pass.",
+  bgColor: "#e2e8f0"
+});
+
+console.log(`Landing page updated: ${landingPage.id}`);
+console.log(`Name: ${landingPage.name}`);
+```
+
+### Credential Profiles
+
+#### List credential profiles
+
+```javascript
+const profiles = await client.console.credentialProfiles.list();
+
+profiles.forEach(profile => {
+  console.log(`ID: ${profile.id}, Name: ${profile.name}, AID: ${profile.aid}`);
+});
+```
+
+#### Create a credential profile
+
+```javascript
+const profile = await client.console.credentialProfiles.create({
+  name: 'Main Office Profile',
+  appName: 'KEY-ID-main',
+  keys: [
+    { value: 'your_32_char_hex_master_key_here' },
+    { value: 'your_32_char_hex__read_key__here' }
+  ]
+});
+
+console.log(`Profile created: ${profile.id}`);
+console.log(`AID: ${profile.aid}`);
 ```
 
 ## Configuration
@@ -373,7 +481,14 @@ MIT License - See LICENSE file for details.
 | GET /v1/console/pass-template-pairs | `console.listPassTemplatePairs()` | Y |
 | GET /v1/console/ledger-items | `console.ledgerItems()` | Y |
 | POST .../ios_preflight | `console.iosPreflight()` | Y |
+| GET /v1/console/webhooks | `console.webhooks.list()` | Y |
+| POST /v1/console/webhooks | `console.webhooks.create()` | Y |
+| DELETE /v1/console/webhooks/{id} | `console.webhooks.delete()` | Y |
+| GET /v1/console/landing-pages | `console.listLandingPages()` | Y |
+| POST /v1/console/landing-pages | `console.createLandingPage()` | Y |
+| PUT /v1/console/landing-pages/{id} | `console.updateLandingPage()` | Y |
+| GET /v1/console/credential-profiles | `console.credentialProfiles.list()` | Y |
+| POST /v1/console/credential-profiles | `console.credentialProfiles.create()` | Y |
 | POST /v1/console/hid/orgs | `console.hid.orgs.create()` | Y |
 | GET /v1/console/hid/orgs | `console.hid.orgs.list()` | Y |
 | POST /v1/console/hid/orgs/activate | `console.hid.orgs.activate()` | Y |
-| Webhooks (payload) | CloudEvents receiver | Y |
