@@ -29,6 +29,10 @@ class AccessCard {
     this.fileData = data.file_data;
     this.directInstallUrl = data.direct_install_url;
     this.title = data.title;
+    this.temporary = data.temporary;
+    this.employeeId = data.employee_id;
+    this.organizationName = data.organization_name;
+    this.createdAt = data.created_at;
     this.devices = data.devices || [];
     this.metadata = data.metadata || {};
   }
@@ -153,7 +157,7 @@ class BaseApi {
     this.accountId = accountId;
     this.secretKey = secretKey;
     this.baseUrl = baseUrl.replace(/\/$/, ""); // Remove trailing slash if present
-    this.version = "1.2.0"; // Should come from package.json
+    this.version = "1.3.0"; // Should come from package.json
   }
 
   async request(path, options = {}) {
@@ -321,6 +325,12 @@ class AccessCardsApi extends BaseApi {
       isPassReadyToTransact: "is_pass_ready_to_transact",
       tileData: "tile_data",
       reservations: "reservations",
+      department: "department",
+      location: "location",
+      siteName: "site_name",
+      workstation: "workstation",
+      mailStop: "mail_stop",
+      companyAddress: "company_address",
       siteCode: "site_code",
       cardNumber: "card_number",
       fileData: "file_data",
@@ -452,6 +462,12 @@ class ConsoleApi extends BaseApi {
     this.hid = {
       orgs: new HIDOrgsApi(accountId, secretKey, baseUrl),
     };
+    this.webhooks = new WebhooksApi(accountId, secretKey, baseUrl);
+    this.credentialProfiles = new CredentialProfilesApi(
+      accountId,
+      secretKey,
+      baseUrl,
+    );
   }
 
   _buildTemplateBody(params) {
@@ -599,6 +615,63 @@ class ConsoleApi extends BaseApi {
     return response;
   }
 
+  async listLandingPages() {
+    const response = await this.request("/v1/console/landing-pages");
+    const pages = Array.isArray(response) ? response : [];
+    return pages.map((p) => new LandingPage(p));
+  }
+
+  async createLandingPage(params) {
+    const paramMapping = {
+      name: "name",
+      kind: "kind",
+      additionalText: "additional_text",
+      bgColor: "bg_color",
+      allowImmediateDownload: "allow_immediate_download",
+      password: "password",
+      is2faEnabled: "is_2fa_enabled",
+      logo: "logo",
+    };
+
+    const body = {};
+    for (const [jsKey, apiKey] of Object.entries(paramMapping)) {
+      if (params[jsKey] !== undefined) {
+        body[apiKey] = params[jsKey];
+      }
+    }
+
+    const response = await this.request("/v1/console/landing-pages", {
+      method: "POST",
+      body,
+    });
+    return new LandingPage(response);
+  }
+
+  async updateLandingPage(params) {
+    const paramMapping = {
+      name: "name",
+      additionalText: "additional_text",
+      bgColor: "bg_color",
+      allowImmediateDownload: "allow_immediate_download",
+      password: "password",
+      is2faEnabled: "is_2fa_enabled",
+      logo: "logo",
+    };
+
+    const body = {};
+    for (const [jsKey, apiKey] of Object.entries(paramMapping)) {
+      if (params[jsKey] !== undefined) {
+        body[apiKey] = params[jsKey];
+      }
+    }
+
+    const response = await this.request(
+      `/v1/console/landing-pages/${params.landingPageId}`,
+      { method: "PUT", body },
+    );
+    return new LandingPage(response);
+  }
+
   async listLedgerItems(params = {}) {
     const queryParams = new URLSearchParams();
     if (params.page) queryParams.append("page", params.page);
@@ -648,7 +721,8 @@ class HIDOrgsApi extends BaseApi {
 
   async list() {
     const response = await this.request("/v1/console/hid/orgs");
-    return (response.hid_orgs || []).map((org) => new HIDOrg(org));
+    const orgs = Array.isArray(response) ? response : response.hid_orgs || [];
+    return orgs.map((org) => new HIDOrg(org));
   }
 
   async activate(params) {
@@ -660,6 +734,109 @@ class HIDOrgsApi extends BaseApi {
       },
     });
     return new HIDOrg(response);
+  }
+}
+
+// LandingPage model class
+class LandingPage {
+  constructor(data = {}) {
+    this.id = data.id;
+    this.name = data.name;
+    this.createdAt = data.created_at;
+    this.kind = data.kind;
+    this.passwordProtected = data.password_protected;
+    this.logoUrl = data.logo_url;
+  }
+}
+
+// CredentialProfile model class
+class CredentialProfile {
+  constructor(data = {}) {
+    this.id = data.id;
+    this.aid = data.aid;
+    this.name = data.name;
+    this.appleId = data.apple_id;
+    this.createdAt = data.created_at;
+    this.cardStorage = data.card_storage;
+    this.keys = data.keys || [];
+    this.files = data.files || [];
+  }
+}
+
+// Webhook model class
+class Webhook {
+  constructor(data = {}) {
+    this.id = data.id;
+    this.name = data.name;
+    this.url = data.url;
+    this.authMethod = data.auth_method;
+    this.subscribedEvents = data.subscribed_events || [];
+    this.createdAt = data.created_at;
+    this.privateKey = data.private_key;
+    this.clientCert = data.client_cert;
+    this.certExpiresAt = data.cert_expires_at;
+  }
+}
+
+// Webhooks API handling
+class WebhooksApi extends BaseApi {
+  constructor(accountId, secretKey, baseUrl) {
+    super(accountId, secretKey, baseUrl);
+  }
+
+  async create(params) {
+    const body = {
+      name: params.name,
+      url: params.url,
+      subscribed_events: params.subscribedEvents,
+    };
+    if (params.authMethod) body.auth_method = params.authMethod;
+
+    const response = await this.request("/v1/console/webhooks", {
+      method: "POST",
+      body,
+    });
+    return new Webhook(response);
+  }
+
+  async list() {
+    const response = await this.request("/v1/console/webhooks");
+    const webhooks = response.webhooks || [];
+    return webhooks.map((w) => new Webhook(w));
+  }
+
+  async delete(webhookId) {
+    await this.request(`/v1/console/webhooks/${webhookId}`, {
+      method: "DELETE",
+    });
+  }
+}
+
+// Credential Profiles API handling
+class CredentialProfilesApi extends BaseApi {
+  constructor(accountId, secretKey, baseUrl) {
+    super(accountId, secretKey, baseUrl);
+  }
+
+  async create(params) {
+    const body = {
+      name: params.name,
+      app_name: params.appName,
+      keys: params.keys,
+    };
+    if (params.fileId) body.file_id = params.fileId;
+
+    const response = await this.request("/v1/console/credential-profiles", {
+      method: "POST",
+      body,
+    });
+    return new CredentialProfile(response);
+  }
+
+  async list() {
+    const response = await this.request("/v1/console/credential-profiles");
+    const profiles = Array.isArray(response) ? response : [];
+    return profiles.map((p) => new CredentialProfile(p));
   }
 }
 
@@ -689,6 +866,9 @@ export {
   LedgerItem,
   LedgerItemAccessPass,
   LedgerItemPassTemplate,
+  LandingPage,
+  CredentialProfile,
+  Webhook,
 };
 
 // Default export

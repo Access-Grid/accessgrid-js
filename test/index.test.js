@@ -1,4 +1,4 @@
-import AccessGrid, { AccessGridError, AuthenticationError, AccessCard, Template, PassTemplatePair, TemplateInfo, HIDOrg, LedgerItem, LedgerItemAccessPass, LedgerItemPassTemplate } from '../src/index';
+import AccessGrid, { AccessGridError, AuthenticationError, AccessCard, Template, PassTemplatePair, TemplateInfo, HIDOrg, LedgerItem, LedgerItemAccessPass, LedgerItemPassTemplate, LandingPage, CredentialProfile, Webhook } from '../src/index';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Global mocks
@@ -1304,6 +1304,367 @@ describe('AccessGrid SDK', () => {
 
       const callBody = JSON.parse(fetch.mock.calls[0][1].body);
       expect(callBody.title).toBe('Senior Developer');
+    });
+
+    test('should include department, location, siteName, workstation, mailStop, companyAddress in provision body', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ id: 'card-123' })
+      });
+
+      await client.accessCards.provision({
+        cardTemplateId: '0xd3adb00b5',
+        fullName: 'Test User',
+        startDate: '2025-01-01T00:00:00Z',
+        expirationDate: '2025-12-31T00:00:00Z',
+        department: 'Engineering',
+        location: 'San Francisco',
+        siteName: 'HQ Building A',
+        workstation: '4F-207',
+        mailStop: 'MS-401',
+        companyAddress: '123 Main St, San Francisco, CA 94105'
+      });
+
+      const callBody = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(callBody.department).toBe('Engineering');
+      expect(callBody.location).toBe('San Francisco');
+      expect(callBody.site_name).toBe('HQ Building A');
+      expect(callBody.workstation).toBe('4F-207');
+      expect(callBody.mail_stop).toBe('MS-401');
+      expect(callBody.company_address).toBe('123 Main St, San Francisco, CA 94105');
+    });
+  });
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // AccessCard model — new fields
+  // ════════════════════════════════════════════════════════════════════════════
+
+  describe('AccessCard new fields', () => {
+    test('should have employeeId, organizationName, temporary, createdAt', () => {
+      const card = new AccessCard({
+        id: 'card-123',
+        employee_id: 'emp_789',
+        organization_name: 'Acme Corp',
+        temporary: true,
+        created_at: '2025-06-01T00:00:00Z'
+      });
+
+      expect(card.employeeId).toBe('emp_789');
+      expect(card.organizationName).toBe('Acme Corp');
+      expect(card.temporary).toBe(true);
+      expect(card.createdAt).toBe('2025-06-01T00:00:00Z');
+    });
+
+    test('should default new fields to undefined when missing', () => {
+      const card = new AccessCard({ id: 'card-minimal' });
+
+      expect(card.employeeId).toBeUndefined();
+      expect(card.organizationName).toBeUndefined();
+      expect(card.temporary).toBeUndefined();
+      expect(card.createdAt).toBeUndefined();
+    });
+  });
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // Landing Pages
+  // ════════════════════════════════════════════════════════════════════════════
+
+  describe('Landing Pages', () => {
+    test('LandingPage model should have correct properties', () => {
+      const page = new LandingPage({
+        id: 'lp-1',
+        name: 'Miami Office',
+        created_at: '2025-01-01T00:00:00Z',
+        kind: 'universal',
+        password_protected: false,
+        logo_url: 'https://example.com/logo.png'
+      });
+
+      expect(page.id).toBe('lp-1');
+      expect(page.name).toBe('Miami Office');
+      expect(page.createdAt).toBe('2025-01-01T00:00:00Z');
+      expect(page.kind).toBe('universal');
+      expect(page.passwordProtected).toBe(false);
+      expect(page.logoUrl).toBe('https://example.com/logo.png');
+    });
+
+    test('listLandingPages should return LandingPage instances', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve([
+          { id: 'lp-1', name: 'Page 1', kind: 'universal', password_protected: false },
+          { id: 'lp-2', name: 'Page 2', kind: 'specific', password_protected: true }
+        ])
+      });
+
+      const pages = await client.console.listLandingPages();
+
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/v1/console/landing-pages'),
+        expect.objectContaining({ method: 'GET' })
+      );
+      expect(pages).toHaveLength(2);
+      expect(pages[0]).toBeInstanceOf(LandingPage);
+      expect(pages[0].name).toBe('Page 1');
+    });
+
+    test('listLandingPages should handle empty array', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve([])
+      });
+
+      const pages = await client.console.listLandingPages();
+      expect(pages).toHaveLength(0);
+    });
+
+    test('createLandingPage should send correct params', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          id: 'lp-new', name: 'Miami Office', kind: 'universal'
+        })
+      });
+
+      const page = await client.console.createLandingPage({
+        name: 'Miami Office Access Pass',
+        kind: 'universal',
+        additionalText: 'Welcome to the Miami Office',
+        bgColor: '#f1f5f9',
+        allowImmediateDownload: true
+      });
+
+      const callBody = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(callBody.name).toBe('Miami Office Access Pass');
+      expect(callBody.kind).toBe('universal');
+      expect(callBody.additional_text).toBe('Welcome to the Miami Office');
+      expect(callBody.bg_color).toBe('#f1f5f9');
+      expect(callBody.allow_immediate_download).toBe(true);
+      expect(page).toBeInstanceOf(LandingPage);
+    });
+
+    test('updateLandingPage should send correct params', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          id: 'lp-1', name: 'Updated Page'
+        })
+      });
+
+      const page = await client.console.updateLandingPage({
+        landingPageId: 'lp-1',
+        name: 'Updated Miami Office Access Pass',
+        additionalText: 'Welcome! Tap below to get your access pass.',
+        bgColor: '#e2e8f0'
+      });
+
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/v1/console/landing-pages/lp-1'),
+        expect.objectContaining({ method: 'PUT' })
+      );
+      const callBody = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(callBody.name).toBe('Updated Miami Office Access Pass');
+      expect(callBody.additional_text).toBe('Welcome! Tap below to get your access pass.');
+      expect(callBody.bg_color).toBe('#e2e8f0');
+      expect(page).toBeInstanceOf(LandingPage);
+    });
+  });
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // Credential Profiles
+  // ════════════════════════════════════════════════════════════════════════════
+
+  describe('Credential Profiles', () => {
+    test('CredentialProfile model should have correct properties', () => {
+      const profile = new CredentialProfile({
+        id: 'cp-1',
+        aid: 'F00001',
+        name: 'Main Office Profile',
+        apple_id: 'apple-123',
+        created_at: '2025-01-01T00:00:00Z',
+        card_storage: '8K',
+        keys: [{ ex_id: 'key-1', label: 'Master Key' }],
+        files: [{ ex_id: 'file-1', file_type: 'standard' }]
+      });
+
+      expect(profile.id).toBe('cp-1');
+      expect(profile.aid).toBe('F00001');
+      expect(profile.name).toBe('Main Office Profile');
+      expect(profile.appleId).toBe('apple-123');
+      expect(profile.createdAt).toBe('2025-01-01T00:00:00Z');
+      expect(profile.cardStorage).toBe('8K');
+      expect(profile.keys).toHaveLength(1);
+      expect(profile.files).toHaveLength(1);
+    });
+
+    test('CredentialProfile defaults keys and files to empty arrays', () => {
+      const profile = new CredentialProfile({ id: 'cp-1' });
+      expect(profile.keys).toEqual([]);
+      expect(profile.files).toEqual([]);
+    });
+
+    test('credentialProfiles.list should return CredentialProfile instances', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve([
+          { id: 'cp-1', aid: 'F00001', name: 'Profile 1' },
+          { id: 'cp-2', aid: 'F00002', name: 'Profile 2' }
+        ])
+      });
+
+      const profiles = await client.console.credentialProfiles.list();
+
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/v1/console/credential-profiles'),
+        expect.objectContaining({ method: 'GET' })
+      );
+      expect(profiles).toHaveLength(2);
+      expect(profiles[0]).toBeInstanceOf(CredentialProfile);
+      expect(profiles[0].aid).toBe('F00001');
+    });
+
+    test('credentialProfiles.list should handle empty array', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve([])
+      });
+
+      const profiles = await client.console.credentialProfiles.list();
+      expect(profiles).toHaveLength(0);
+    });
+
+    test('credentialProfiles.create should send correct params', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          id: 'cp-new', aid: 'F00003', name: 'Main Office Profile'
+        })
+      });
+
+      const profile = await client.console.credentialProfiles.create({
+        name: 'Main Office Profile',
+        appName: 'KEY-ID-main',
+        keys: [
+          { value: 'your_32_char_hex_master_key_here' },
+          { value: 'your_32_char_hex__read_key__here' }
+        ]
+      });
+
+      const callBody = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(callBody.name).toBe('Main Office Profile');
+      expect(callBody.app_name).toBe('KEY-ID-main');
+      expect(callBody.keys).toHaveLength(2);
+      expect(profile).toBeInstanceOf(CredentialProfile);
+    });
+  });
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // Webhooks
+  // ════════════════════════════════════════════════════════════════════════════
+
+  describe('Webhooks', () => {
+    test('Webhook model should have correct properties', () => {
+      const webhook = new Webhook({
+        id: 'wh-1',
+        name: 'Production',
+        url: 'https://example.com/webhooks',
+        auth_method: 'bearer_token',
+        subscribed_events: ['ag.access_pass.issued'],
+        created_at: '2025-01-01T00:00:00Z',
+        private_key: 'pk_123'
+      });
+
+      expect(webhook.id).toBe('wh-1');
+      expect(webhook.name).toBe('Production');
+      expect(webhook.url).toBe('https://example.com/webhooks');
+      expect(webhook.authMethod).toBe('bearer_token');
+      expect(webhook.subscribedEvents).toEqual(['ag.access_pass.issued']);
+      expect(webhook.createdAt).toBe('2025-01-01T00:00:00Z');
+      expect(webhook.privateKey).toBe('pk_123');
+    });
+
+    test('webhooks.create should send correct params', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          id: 'wh-new',
+          name: 'Production',
+          url: 'https://example.com/webhooks',
+          subscribed_events: ['ag.access_pass.issued'],
+          private_key: 'pk_secret'
+        })
+      });
+
+      const webhook = await client.console.webhooks.create({
+        name: 'Production',
+        url: 'https://example.com/webhooks',
+        subscribedEvents: ['ag.access_pass.issued']
+      });
+
+      const callBody = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(callBody.name).toBe('Production');
+      expect(callBody.url).toBe('https://example.com/webhooks');
+      expect(callBody.subscribed_events).toEqual(['ag.access_pass.issued']);
+      expect(webhook).toBeInstanceOf(Webhook);
+      expect(webhook.privateKey).toBe('pk_secret');
+    });
+
+    test('webhooks.list should return Webhook instances', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          webhooks: [
+            { id: 'wh-1', name: 'Prod', url: 'https://example.com/wh1' },
+            { id: 'wh-2', name: 'Staging', url: 'https://example.com/wh2' }
+          ]
+        })
+      });
+
+      const webhooks = await client.console.webhooks.list();
+
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/v1/console/webhooks'),
+        expect.objectContaining({ method: 'GET' })
+      );
+      expect(webhooks).toHaveLength(2);
+      expect(webhooks[0]).toBeInstanceOf(Webhook);
+      expect(webhooks[0].name).toBe('Prod');
+    });
+
+    test('webhooks.delete should make correct API call', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({})
+      });
+
+      await client.console.webhooks.delete('wh-1');
+
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/v1/console/webhooks/wh-1'),
+        expect.objectContaining({ method: 'DELETE' })
+      );
+    });
+  });
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // HID Orgs — flat array fix
+  // ════════════════════════════════════════════════════════════════════════════
+
+  describe('HID Orgs flat array response', () => {
+    test('should handle flat array response from API', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve([
+          { id: 'org-1', name: 'Org 1', slug: 'org-1' },
+          { id: 'org-2', name: 'Org 2', slug: 'org-2' }
+        ])
+      });
+
+      const orgs = await client.console.hid.orgs.list();
+
+      expect(orgs).toHaveLength(2);
+      expect(orgs[0]).toBeInstanceOf(HIDOrg);
+      expect(orgs[0].name).toBe('Org 1');
     });
   });
 });
