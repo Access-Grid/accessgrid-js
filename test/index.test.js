@@ -550,19 +550,21 @@ describe('AccessGrid SDK', () => {
 
     describe('listPassTemplatePairs', () => {
       const mockPairsResponse = {
-        pass_template_pairs: [
+        card_template_pairs: [
           {
             id: 'pair-1',
+            ex_id: 'pair-1',
             name: 'Employee Badge Pair',
             created_at: '2025-01-15T00:00:00Z',
-            ios_template: { id: 'ios-1', name: 'iOS Badge', platform: 'apple' },
-            android_template: { id: 'android-1', name: 'Android Badge', platform: 'google' }
+            ios_template: { id: 'ios-1', ex_id: 'ios-1', name: 'iOS Badge', platform: 'apple' },
+            android_template: { id: 'android-1', ex_id: 'android-1', name: 'Android Badge', platform: 'google' }
           },
           {
             id: 'pair-2',
+            ex_id: 'pair-2',
             name: 'Visitor Pass Pair',
             created_at: '2025-02-01T00:00:00Z',
-            ios_template: { id: 'ios-2', name: 'iOS Visitor', platform: 'apple' },
+            ios_template: { id: 'ios-2', ex_id: 'ios-2', name: 'iOS Visitor', platform: 'apple' },
             android_template: null
           }
         ]
@@ -577,7 +579,7 @@ describe('AccessGrid SDK', () => {
         await client.console.listPassTemplatePairs();
 
         expect(fetch).toHaveBeenCalledWith(
-          expect.stringContaining('/v1/console/pass-template-pairs'),
+          expect.stringContaining('/v1/console/card-template-pairs'),
           expect.objectContaining({
             method: 'GET'
           })
@@ -611,7 +613,7 @@ describe('AccessGrid SDK', () => {
         await client.console.listPassTemplatePairs();
 
         const calledUrl = fetch.mock.calls[0][0];
-        expect(calledUrl).toMatch(/\/pass-template-pairs(\?sig_payload=|$)/);
+        expect(calledUrl).toMatch(/\/card-template-pairs(\?sig_payload=|$)/);
       });
 
       test('should return PassTemplatePair instances', async () => {
@@ -635,10 +637,10 @@ describe('AccessGrid SDK', () => {
 
         const result = await client.console.listPassTemplatePairs();
 
-        expect(result.pass_template_pairs).toBeUndefined();
+        expect(result.card_template_pairs).toBeUndefined();
       });
 
-      test('should deserialize nested TemplateInfo models', async () => {
+      test('should deserialize nested TemplateInfo models with ex_id', async () => {
         global.fetch.mockResolvedValueOnce({
           ok: true,
           json: () => Promise.resolve(mockPairsResponse)
@@ -648,10 +650,12 @@ describe('AccessGrid SDK', () => {
         const pair = result.passTemplatePairs[0];
 
         expect(pair.id).toBe('pair-1');
+        expect(pair.exId).toBe('pair-1');
         expect(pair.name).toBe('Employee Badge Pair');
         expect(pair.createdAt).toBe('2025-01-15T00:00:00Z');
         expect(pair.iosTemplate).toBeInstanceOf(TemplateInfo);
         expect(pair.iosTemplate.id).toBe('ios-1');
+        expect(pair.iosTemplate.exId).toBe('ios-1');
         expect(pair.iosTemplate.platform).toBe('apple');
         expect(pair.androidTemplate).toBeInstanceOf(TemplateInfo);
         expect(pair.androidTemplate.id).toBe('android-1');
@@ -669,6 +673,47 @@ describe('AccessGrid SDK', () => {
 
         expect(pair.iosTemplate).toBeInstanceOf(TemplateInfo);
         expect(pair.androidTemplate).toBeNull();
+      });
+    });
+
+    describe('createPassTemplatePair', () => {
+      const mockPairResponse = {
+        id: 'pair_new',
+        ex_id: 'pair_new',
+        name: 'New Badge Pair',
+        created_at: '2026-04-15T12:00:00Z',
+        ios_template: { id: 'tmpl_ios', ex_id: 'tmpl_ios', name: 'iOS Badge', platform: 'apple' },
+        android_template: { id: 'tmpl_android', ex_id: 'tmpl_android', name: 'Android Badge', platform: 'android' }
+      };
+
+      test('should POST to /v1/console/card-template-pairs with snake_case body', async () => {
+        global.fetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(mockPairResponse)
+        });
+
+        const pair = await client.console.createPassTemplatePair({
+          name: 'New Badge Pair',
+          appleCardTemplateId: 'tmpl_ios',
+          googleCardTemplateId: 'tmpl_android'
+        });
+
+        expect(fetch).toHaveBeenCalledWith(
+          expect.stringContaining('/v1/console/card-template-pairs'),
+          expect.objectContaining({ method: 'POST' })
+        );
+
+        const call = fetch.mock.calls[0][1];
+        const body = JSON.parse(call.body);
+        expect(body.name).toBe('New Badge Pair');
+        expect(body.apple_card_template_id).toBe('tmpl_ios');
+        expect(body.google_card_template_id).toBe('tmpl_android');
+
+        expect(pair).toBeInstanceOf(PassTemplatePair);
+        expect(pair.id).toBe('pair_new');
+        expect(pair.exId).toBe('pair_new');
+        expect(pair.iosTemplate.platform).toBe('apple');
+        expect(pair.androidTemplate.platform).toBe('android');
       });
     });
   });

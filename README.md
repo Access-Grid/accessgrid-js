@@ -220,6 +220,19 @@ result.passTemplatePairs.forEach(pair => {
 });
 ```
 
+#### Create a pass template pair
+
+```javascript
+// Both card templates must be published (status: ready) and use the same protocol.
+const pair = await client.console.createPassTemplatePair({
+  name: 'Employee Badge Pair',
+  appleCardTemplateId: '0xapplet3mp14t3',
+  googleCardTemplateId: '0xgoogl3t3mp14t3'
+});
+
+console.log(`Created pair: ${pair.name} (${pair.id})`);
+```
+
 #### List ledger items
 
 ```javascript
@@ -478,7 +491,8 @@ MIT License - See LICENSE file for details.
 | PUT /v1/console/card-templates/{id} | `console.updateTemplate()` | Y |
 | GET /v1/console/card-templates/{id} | `console.readTemplate()` | Y |
 | GET .../logs | `console.eventLog()` | Y |
-| GET /v1/console/pass-template-pairs | `console.listPassTemplatePairs()` | Y |
+| GET /v1/console/card-template-pairs | `console.listPassTemplatePairs()` | Y |
+| POST /v1/console/card-template-pairs | `console.createPassTemplatePair()` | Y |
 | GET /v1/console/ledger-items | `console.ledgerItems()` | Y |
 | POST .../ios_preflight | `console.iosPreflight()` | Y |
 | GET /v1/console/webhooks | `console.webhooks.list()` | Y |

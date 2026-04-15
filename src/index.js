@@ -92,6 +92,7 @@ class HIDOrg {
 class PassTemplatePair {
   constructor(data = {}) {
     this.id = data.id;
+    this.exId = data.ex_id;
     this.name = data.name;
     this.createdAt = data.created_at;
     this.androidTemplate = data.android_template
@@ -107,6 +108,7 @@ class PassTemplatePair {
 class TemplateInfo {
   constructor(data = {}) {
     this.id = data.id;
+    this.exId = data.ex_id;
     this.name = data.name;
     this.platform = data.platform;
   }
@@ -157,7 +159,7 @@ class BaseApi {
     this.accountId = accountId;
     this.secretKey = secretKey;
     this.baseUrl = baseUrl.replace(/\/$/, ""); // Remove trailing slash if present
-    this.version = "1.3.0"; // Should come from package.json
+    this.version = "1.4.0"; // Should come from package.json
   }
 
   async request(path, options = {}) {
@@ -600,19 +602,32 @@ class ConsoleApi extends BaseApi {
 
     const queryString = queryParams.toString();
     const path = queryString
-      ? `/v1/console/pass-template-pairs?${queryString}`
-      : "/v1/console/pass-template-pairs";
+      ? `/v1/console/card-template-pairs?${queryString}`
+      : "/v1/console/card-template-pairs";
 
     const response = await this.request(path);
 
-    if (response.pass_template_pairs) {
-      response.passTemplatePairs = response.pass_template_pairs.map(
+    if (response.card_template_pairs) {
+      response.passTemplatePairs = response.card_template_pairs.map(
         (pair) => new PassTemplatePair(pair),
       );
-      delete response.pass_template_pairs;
+      delete response.card_template_pairs;
     }
 
     return response;
+  }
+
+  async createPassTemplatePair(params) {
+    const body = {
+      name: params.name,
+      apple_card_template_id: params.appleCardTemplateId,
+      google_card_template_id: params.googleCardTemplateId,
+    };
+    const response = await this.request("/v1/console/card-template-pairs", {
+      method: "POST",
+      body,
+    });
+    return new PassTemplatePair(response);
   }
 
   async listLandingPages() {
