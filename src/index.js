@@ -194,7 +194,11 @@ class BaseApi {
       let payload;
       let sigPayload;
 
-      if ((method === "POST" && !options.body) || method === "GET" || method === "DELETE") {
+      if (
+        (method === "POST" && !options.body) ||
+        method === "GET" ||
+        method === "DELETE"
+      ) {
         // For these requests, use {"id": "card_id"} as the payload for signature generation
         if (resourceId) {
           sigPayload = JSON.stringify({ id: resourceId });
@@ -222,7 +226,11 @@ class BaseApi {
 
       // Handle query parameters for GET requests or POST with empty body
       let finalUrl = url;
-      if (method === "GET" || method === "DELETE" || (method === "POST" && !options.body)) {
+      if (
+        method === "GET" ||
+        method === "DELETE" ||
+        (method === "POST" && !options.body)
+      ) {
         if (resourceId) {
           // Add sig_payload to query params
           const separator = finalUrl.includes("?") ? "&" : "?";
@@ -566,9 +574,11 @@ class ConsoleApi extends BaseApi {
 
     return {
       provisioningCredentialIdentifier:
-        response.provisioningCredentialIdentifier || response.provisioning_credential_identifier,
+        response.provisioningCredentialIdentifier ||
+        response.provisioning_credential_identifier,
       sharingInstanceIdentifier:
-        response.sharingInstanceIdentifier || response.sharing_instance_identifier,
+        response.sharingInstanceIdentifier ||
+        response.sharing_instance_identifier,
       cardTemplateIdentifier:
         response.cardTemplateIdentifier || response.card_template_identifier,
       environmentIdentifier:
