@@ -550,7 +550,7 @@ describe('AccessGrid SDK', () => {
 
     describe('listPassTemplatePairs', () => {
       const mockPairsResponse = {
-        pass_template_pairs: [
+        card_template_pairs: [
           {
             id: 'pair-1',
             name: 'Employee Badge Pair',
@@ -577,7 +577,7 @@ describe('AccessGrid SDK', () => {
         await client.console.listPassTemplatePairs();
 
         expect(fetch).toHaveBeenCalledWith(
-          expect.stringContaining('/v1/console/pass-template-pairs'),
+          expect.stringContaining('/v1/console/card-template-pairs'),
           expect.objectContaining({
             method: 'GET'
           })
@@ -611,7 +611,7 @@ describe('AccessGrid SDK', () => {
         await client.console.listPassTemplatePairs();
 
         const calledUrl = fetch.mock.calls[0][0];
-        expect(calledUrl).toMatch(/\/pass-template-pairs(\?sig_payload=|$)/);
+        expect(calledUrl).toMatch(/\/card-template-pairs(\?sig_payload=|$)/);
       });
 
       test('should return PassTemplatePair instances', async () => {
@@ -635,7 +635,7 @@ describe('AccessGrid SDK', () => {
 
         const result = await client.console.listPassTemplatePairs();
 
-        expect(result.pass_template_pairs).toBeUndefined();
+        expect(result.card_template_pairs).toBeUndefined();
       });
 
       test('should deserialize nested TemplateInfo models', async () => {
