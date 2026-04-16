@@ -478,7 +478,8 @@ MIT License - See LICENSE file for details.
 | PUT /v1/console/card-templates/{id} | `console.updateTemplate()` | Y |
 | GET /v1/console/card-templates/{id} | `console.readTemplate()` | Y |
 | GET .../logs | `console.eventLog()` | Y |
-| GET /v1/console/pass-template-pairs | `console.listPassTemplatePairs()` | Y |
+| GET /v1/console/card-template-pairs | `console.listPassTemplatePairs()` | Y |
+| POST /v1/console/card-template-pairs | `console.createPassTemplatePair()` | Y |
 | GET /v1/console/ledger-items | `console.ledgerItems()` | Y |
 | POST .../ios_preflight | `console.iosPreflight()` | Y |
 | GET /v1/console/webhooks | `console.webhooks.list()` | Y |
