@@ -51,7 +51,12 @@ export async function decryptEnvelope(envelope, privateKey) {
   let plaintextBuf;
   try {
     plaintextBuf = await crypto.subtle.decrypt(
-      { name: "AES-GCM", iv, tagLength: GCM_TAG_BITS, additionalData: new Uint8Array(0) },
+      {
+        name: "AES-GCM",
+        iv,
+        tagLength: GCM_TAG_BITS,
+        additionalData: new Uint8Array(0),
+      },
       aesKey,
       combined,
     );
@@ -145,7 +150,8 @@ function pemToSpkiBytes(pem) {
 function spkiBufferToPem(spkiBuf) {
   const bytes = new Uint8Array(spkiBuf);
   let binary = "";
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  for (let i = 0; i < bytes.length; i++)
+    binary += String.fromCharCode(bytes[i]);
   const b64 = btoa(binary);
   const lines = b64.match(/.{1,64}/g).join("\n");
   return `-----BEGIN PUBLIC KEY-----\n${lines}\n-----END PUBLIC KEY-----\n`;
