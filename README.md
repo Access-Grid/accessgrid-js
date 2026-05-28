@@ -508,6 +508,8 @@ MIT License - See LICENSE file for details.
 | POST /v1/console/card-templates | `console.createTemplate()` | Y |
 | PUT /v1/console/card-templates/{id} | `console.updateTemplate()` | Y |
 | GET /v1/console/card-templates/{id} | `console.readTemplate()` | Y |
+| POST /v1/console/card-templates/{id}/publish | `console.publishTemplate()` | Y |
+| POST /v1/console/card-templates/{id}/smart-tap/reveal | `console.revealSmartTap()` | Y |
 | GET .../logs | `console.eventLog()` | Y |
 | GET /v1/console/card-template-pairs | `console.listPassTemplatePairs()` | Y |
 | POST /v1/console/card-template-pairs | `console.createPassTemplatePair()` | Y |
