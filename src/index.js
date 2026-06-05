@@ -1,17 +1,13 @@
-// AccessGrid Error classes
-class AccessGridError extends Error {
-  constructor(message) {
-    super(message);
-    this.name = "AccessGridError";
-  }
-}
-
-class AuthenticationError extends AccessGridError {
-  constructor(message = "Invalid credentials") {
-    super(message);
-    this.name = "AuthenticationError";
-  }
-}
+import {
+  AccessGridError,
+  AuthenticationError,
+  DecryptError,
+  InvalidEnvelopeError,
+} from "./errors.js";
+import {
+  generateKeypair as generateRevealKeypair,
+  decryptEnvelope as decryptRevealEnvelope,
+} from "./smart_tap_reveal_crypto.js";
 
 // AccessCard model class
 class AccessCard {
@@ -151,13 +147,33 @@ class LedgerItem {
   }
 }
 
+// Result of publishing a card template.
+class PublishTemplateResponse {
+  constructor(data = {}) {
+    this.id = data.id;
+    this.status = data.status;
+  }
+}
+
+// Result of a SmartTap private key reveal. privateKey is the plaintext PEM,
+// decrypted client-side by the SDK. The encrypted envelope is consumed
+// internally and not exposed.
+class RevealTemplatePrivateKey {
+  constructor(data = {}) {
+    this.keyVersion = data.key_version;
+    this.collectorId = data.collector_id;
+    this.fingerprint = data.fingerprint;
+    this.privateKey = data.private_key;
+  }
+}
+
 // Base API wrapper to handle common functionality
 class BaseApi {
   constructor(accountId, secretKey, baseUrl = "https://api.accessgrid.com") {
     this.accountId = accountId;
     this.secretKey = secretKey;
     this.baseUrl = baseUrl.replace(/\/$/, ""); // Remove trailing slash if present
-    this.version = "1.3.0"; // Should come from package.json
+    this.version = "1.4.0"; // Should come from package.json
   }
 
   async request(path, options = {}) {
@@ -178,7 +194,7 @@ class BaseApi {
         if (parts.length >= 2) {
           // For actions like unlink/suspend/resume, get the card ID (second to last part)
           if (
-            ["suspend", "resume", "unlink", "delete"].includes(
+            ["suspend", "resume", "unlink", "delete", "publish"].includes(
               parts[parts.length - 1],
             )
           ) {
@@ -540,6 +556,36 @@ class ConsoleApi extends BaseApi {
     return new Template(response);
   }
 
+  async publishTemplate(params) {
+    const response = await this.request(
+      `/v1/console/card-templates/${params.cardTemplateId}/publish`,
+      { method: "POST" },
+    );
+    return new PublishTemplateResponse(response);
+  }
+
+  // Reveal the SmartTap private key for a card template, decrypted client-side.
+  //
+  // The SDK generates a fresh ephemeral P-256 keypair per call, submits the
+  // public half, and decrypts the server's response. The returned
+  // RevealTemplatePrivateKey carries the plaintext PEM in .privateKey;
+  // the encrypted envelope is consumed internally and not exposed.
+  async revealSmartTap(params) {
+    const { publicKeyPem, privateKey } = await generateRevealKeypair();
+    const response = await this.request(
+      `/v1/console/card-templates/${params.cardTemplateId}/smart-tap/reveal`,
+      { method: "POST", body: { client_public_key: publicKeyPem } },
+    );
+    const plaintext = await decryptRevealEnvelope(
+      response.encrypted_private_key,
+      privateKey,
+    );
+    return new RevealTemplatePrivateKey({
+      ...response,
+      private_key: plaintext,
+    });
+  }
+
   async getEventLogs(params) {
     const queryParams = new URLSearchParams();
     if (params.filters) {
@@ -891,6 +937,8 @@ export {
   AccessGrid,
   AccessGridError,
   AuthenticationError,
+  DecryptError,
+  InvalidEnvelopeError,
   AccessCard,
   Template,
   PassTemplatePair,
@@ -902,6 +950,8 @@ export {
   LandingPage,
   CredentialProfile,
   Webhook,
+  PublishTemplateResponse,
+  RevealTemplatePrivateKey,
 };
 
 // Default export

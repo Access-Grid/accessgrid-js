@@ -187,6 +187,37 @@ console.log(`Protocol: ${template.protocol}`);
 console.log(`Multi-device: ${template.allowOnMultipleDevices}`);
 ```
 
+#### Publish a template
+
+```javascript
+const result = await client.console.publishTemplate({
+  cardTemplateId: "0xd3adb00b5"
+});
+
+console.log(`Template ${result.id} status: ${result.status}`);
+// status is one of: "publishing" (already in flight), "in-review" (Apple
+// queued), or "ready" (Android immediate)
+```
+
+#### Reveal a SmartTap private key
+
+Fetches the template's SmartTap private key, decrypted client-side. The SDK generates a fresh ephemeral P-256 keypair per call, submits the public half, and decrypts the server's response — you get the plaintext PEM back without touching any crypto.
+
+```javascript
+const reveal = await client.console.revealSmartTap({
+  cardTemplateId: "0xd3adb00b5"
+});
+
+console.log(`Key version:  ${reveal.keyVersion}`);
+console.log(`Collector ID: ${reveal.collectorId}`);
+console.log(`Fingerprint:  ${reveal.fingerprint}`);
+console.log(reveal.privateKey); // PEM — store in your reader/collector key vault
+```
+
+The server enforces single-use on pubkey fingerprint and rate-limits to 1 per minute per account. The SDK uses a fresh keypair every call, so single-use is satisfied automatically.
+
+Requires Node 15+ (or any browser with Web Crypto API support). No new runtime dependencies — the SDK uses `crypto.subtle` end-to-end.
+
 #### Get event logs
 
 ```javascript
@@ -477,6 +508,8 @@ MIT License - See LICENSE file for details.
 | POST /v1/console/card-templates | `console.createTemplate()` | Y |
 | PUT /v1/console/card-templates/{id} | `console.updateTemplate()` | Y |
 | GET /v1/console/card-templates/{id} | `console.readTemplate()` | Y |
+| POST /v1/console/card-templates/{id}/publish | `console.publishTemplate()` | Y |
+| POST /v1/console/card-templates/{id}/smart-tap/reveal | `console.revealSmartTap()` | Y |
 | GET .../logs | `console.eventLog()` | Y |
 | GET /v1/console/card-template-pairs | `console.listPassTemplatePairs()` | Y |
 | POST /v1/console/card-template-pairs | `console.createPassTemplatePair()` | Y |
