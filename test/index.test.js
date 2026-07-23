@@ -1,4 +1,4 @@
-import AccessGrid, { AccessGridError, AuthenticationError, AccessCard, Template, PassTemplatePair, TemplateInfo, HIDOrg, LedgerItem, LedgerItemAccessPass, LedgerItemPassTemplate, LandingPage, CredentialProfile, Webhook } from '../src/index';
+import AccessGrid, { AccessGridError, AuthenticationError, AccessCard, Template, PassTemplatePair, TemplateInfo, HIDOrg, LedgerItem, LedgerItemAccessPass, LedgerItemPassTemplate, LandingPage, CredentialProfile, Webhook, WebhookVerification } from '../src/index';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Global mocks
@@ -1556,6 +1556,21 @@ describe('AccessGrid SDK', () => {
       expect(callBody.keys).toHaveLength(2);
       expect(profile).toBeInstanceOf(CredentialProfile);
     });
+
+    test('credentialProfiles.delete should DELETE and sign {"id":<id>}', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ id: 'cp-1', deactivated: true })
+      });
+
+      await client.console.credentialProfiles.delete('cp-1');
+
+      expect(fetch.mock.calls[0][1].method).toBe('DELETE');
+      expect(fetch.mock.calls[0][0]).toContain('/v1/console/credential-profiles/cp-1');
+
+      const sig = new URL(fetch.mock.calls[0][0]).searchParams.get('sig_payload');
+      expect(sig).toBe('{"id":"cp-1"}');
+    });
   });
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -1643,6 +1658,136 @@ describe('AccessGrid SDK', () => {
         expect.stringContaining('/v1/console/webhooks/wh-1'),
         expect.objectContaining({ method: 'DELETE' })
       );
+    });
+
+    test('webhooks.verify should POST and sign {"id":<id>} on 200', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ id: 'wh-1', verified: true })
+      });
+
+      const result = await client.console.webhooks.verify('wh-1');
+
+      expect(fetch.mock.calls[0][1].method).toBe('POST');
+      expect(fetch.mock.calls[0][0]).toContain('/v1/console/webhooks/wh-1/verify');
+
+      const sig = new URL(fetch.mock.calls[0][0]).searchParams.get('sig_payload');
+      expect(sig).toBe('{"id":"wh-1"}');
+
+      expect(result).toBeInstanceOf(WebhookVerification);
+      expect(result.id).toBe('wh-1');
+      expect(result.verified).toBe(true);
+    });
+
+    test('webhooks.verify should treat 202 as success with verified false', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        status: 202,
+        json: () => Promise.resolve({ id: 'wh-2', verified: false })
+      });
+
+      const result = await client.console.webhooks.verify('wh-2');
+
+      expect(fetch.mock.calls[0][1].method).toBe('POST');
+      const sig = new URL(fetch.mock.calls[0][0]).searchParams.get('sig_payload');
+      expect(sig).toBe('{"id":"wh-2"}');
+
+      expect(result).toBeInstanceOf(WebhookVerification);
+      expect(result.verified).toBe(false);
+    });
+  });
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // Console API — deleteTemplate
+  // ════════════════════════════════════════════════════════════════════════════
+
+  describe('Console API — deleteTemplate', () => {
+    test('deleteTemplate should DELETE and sign {"id":<id>}', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ id: 'ct-1', deactivated: true })
+      });
+
+      await client.console.deleteTemplate('ct-1');
+
+      expect(fetch.mock.calls[0][1].method).toBe('DELETE');
+      expect(fetch.mock.calls[0][0]).toContain('/v1/console/card-templates/ct-1');
+
+      const sig = new URL(fetch.mock.calls[0][0]).searchParams.get('sig_payload');
+      expect(sig).toBe('{"id":"ct-1"}');
+    });
+  });
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // Multi-family / residential params
+  // ════════════════════════════════════════════════════════════════════════════
+
+  describe('Multi-family params', () => {
+    const residentFields = {
+      propertyName: 'Sunset Apartments',
+      propertyAddress: '100 Market St',
+      buildingName: 'Building A',
+      storageUnit: 'S-12',
+      parkingAddress: '100 Market St Garage',
+      barcodeData: 'ABC-123-XYZ',
+      unitNumbers: ['4B', '4C'],
+      parkingDetails: [
+        { label: 'Space', value: 'P-42' },
+        { label: 'Level', value: '2' }
+      ]
+    };
+
+    test('provision should snake_case multi-family fields', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ id: 'card-1', full_name: 'Resident' })
+      });
+
+      await client.accessCards.provision({
+        cardTemplateId: 'ct-1',
+        fullName: 'Resident',
+        startDate: '2025-01-01T00:00:00Z',
+        expirationDate: '2025-12-31T00:00:00Z',
+        ...residentFields
+      });
+
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.property_name).toBe('Sunset Apartments');
+      expect(body.property_address).toBe('100 Market St');
+      expect(body.building_name).toBe('Building A');
+      expect(body.storage_unit).toBe('S-12');
+      expect(body.parking_address).toBe('100 Market St Garage');
+      expect(body.barcode_data).toBe('ABC-123-XYZ');
+      expect(body.unit_numbers).toEqual(['4B', '4C']);
+      expect(body.parking_details).toEqual([
+        { label: 'Space', value: 'P-42' },
+        { label: 'Level', value: '2' }
+      ]);
+    });
+
+    test('update should snake_case multi-family fields', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ id: 'card-1', full_name: 'Resident' })
+      });
+
+      await client.accessCards.update({
+        cardId: 'card-1',
+        ...residentFields
+      });
+
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.property_name).toBe('Sunset Apartments');
+      expect(body.building_name).toBe('Building A');
+      expect(body.storage_unit).toBe('S-12');
+      expect(body.parking_address).toBe('100 Market St Garage');
+      expect(body.barcode_data).toBe('ABC-123-XYZ');
+      expect(body.unit_numbers).toEqual(['4B', '4C']);
+      expect(body.parking_details).toEqual([
+        { label: 'Space', value: 'P-42' },
+        { label: 'Level', value: '2' }
+      ]);
     });
   });
 
