@@ -173,7 +173,7 @@ class BaseApi {
     this.accountId = accountId;
     this.secretKey = secretKey;
     this.baseUrl = baseUrl.replace(/\/$/, ""); // Remove trailing slash if present
-    this.version = "1.4.0"; // Should come from package.json
+    this.version = "1.5.0"; // Should come from package.json
   }
 
   async request(path, options = {}) {
@@ -194,9 +194,14 @@ class BaseApi {
         if (parts.length >= 2) {
           // For actions like unlink/suspend/resume, get the card ID (second to last part)
           if (
-            ["suspend", "resume", "unlink", "delete", "publish"].includes(
-              parts[parts.length - 1],
-            )
+            [
+              "suspend",
+              "resume",
+              "unlink",
+              "delete",
+              "publish",
+              "verify",
+            ].includes(parts[parts.length - 1])
           ) {
             resourceId = parts[parts.length - 2];
           } else {
@@ -368,6 +373,15 @@ class AccessCardsApi extends BaseApi {
       title: "title",
       organizationName: "organization_name",
       metadata: "metadata",
+      // Multi-family / residential parameters
+      propertyName: "property_name",
+      propertyAddress: "property_address",
+      buildingName: "building_name",
+      storageUnit: "storage_unit",
+      parkingAddress: "parking_address",
+      barcodeData: "barcode_data",
+      unitNumbers: "unit_numbers",
+      parkingDetails: "parking_details",
     };
 
     // Add any params that exist to the request body
@@ -428,6 +442,15 @@ class AccessCardsApi extends BaseApi {
       isPassReadyToTransact: "is_pass_ready_to_transact",
       tileData: "tile_data",
       reservations: "reservations",
+      // Multi-family / residential parameters
+      propertyName: "property_name",
+      propertyAddress: "property_address",
+      buildingName: "building_name",
+      storageUnit: "storage_unit",
+      parkingAddress: "parking_address",
+      barcodeData: "barcode_data",
+      unitNumbers: "unit_numbers",
+      parkingDetails: "parking_details",
     };
 
     // Add any params that exist to the request body
@@ -562,6 +585,13 @@ class ConsoleApi extends BaseApi {
       { method: "POST" },
     );
     return new PublishTemplateResponse(response);
+  }
+
+  // Delete a card template.
+  async deleteTemplate(cardTemplateId) {
+    await this.request(`/v1/console/card-templates/${cardTemplateId}`, {
+      method: "DELETE",
+    });
   }
 
   // Reveal the SmartTap private key for a card template, decrypted client-side.
@@ -857,6 +887,14 @@ class Webhook {
   }
 }
 
+// Result of a webhook verification.
+class WebhookVerification {
+  constructor(data = {}) {
+    this.id = data.id;
+    this.verified = data.verified;
+  }
+}
+
 // Webhooks API handling
 class WebhooksApi extends BaseApi {
   constructor(accountId, secretKey, baseUrl) {
@@ -889,6 +927,15 @@ class WebhooksApi extends BaseApi {
       method: "DELETE",
     });
   }
+
+  // Verify a webhook.
+  async verify(webhookId) {
+    const response = await this.request(
+      `/v1/console/webhooks/${webhookId}/verify`,
+      { method: "POST" },
+    );
+    return new WebhookVerification(response);
+  }
 }
 
 // Credential Profiles API handling
@@ -916,6 +963,14 @@ class CredentialProfilesApi extends BaseApi {
     const response = await this.request("/v1/console/credential-profiles");
     const profiles = Array.isArray(response) ? response : [];
     return profiles.map((p) => new CredentialProfile(p));
+  }
+
+  // Delete a credential profile.
+  async delete(credentialProfileId) {
+    await this.request(
+      `/v1/console/credential-profiles/${credentialProfileId}`,
+      { method: "DELETE" },
+    );
   }
 }
 
@@ -950,6 +1005,7 @@ export {
   LandingPage,
   CredentialProfile,
   Webhook,
+  WebhookVerification,
   PublishTemplateResponse,
   RevealTemplatePrivateKey,
 };

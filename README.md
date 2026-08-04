@@ -103,6 +103,30 @@ const card = await client.accessCards.update({
 });
 ```
 
+#### Multi-family / residential fields
+
+For residential passes, `provision()` and `update()` accept an optional set of resident fields. Pass them as camelCase and the SDK forwards them to the API:
+
+```javascript
+const card = await client.accessCards.provision({
+  cardTemplateId: "0xd3adb00b5",
+  fullName: "Resident Name",
+  startDate: "2025-01-31T22:46:25.601Z",
+  expirationDate: "2025-04-30T22:46:25.601Z",
+  propertyName: "Sunset Apartments",
+  propertyAddress: "100 Market St",
+  buildingName: "Building A",
+  storageUnit: "S-12",
+  parkingAddress: "100 Market St Garage",
+  barcodeData: "ABC-123-XYZ",
+  unitNumbers: ["4B", "4C"],
+  parkingDetails: [
+    { label: "Space", value: "P-42" },
+    { label: "Level", value: "2" }
+  ]
+});
+```
+
 #### Manage card states
 
 ```javascript
@@ -197,6 +221,12 @@ const result = await client.console.publishTemplate({
 console.log(`Template ${result.id} status: ${result.status}`);
 // status is one of: "publishing" (already in flight), "in-review" (Apple
 // queued), or "ready" (Android immediate)
+```
+
+#### Delete a template
+
+```javascript
+await client.console.deleteTemplate("0xd3adb00b5");
 ```
 
 #### Reveal a SmartTap private key
@@ -356,6 +386,14 @@ webhooks.forEach(webhook => {
 await client.console.webhooks.delete('abc123');
 ```
 
+#### Verify a webhook
+
+```javascript
+const result = await client.console.webhooks.verify('abc123');
+
+console.log(`Webhook ${result.id} verified: ${result.verified}`);
+```
+
 #### Receiving webhook payloads
 
 ```javascript
@@ -460,6 +498,12 @@ console.log(`Profile created: ${profile.id}`);
 console.log(`AID: ${profile.aid}`);
 ```
 
+#### Delete a credential profile
+
+```javascript
+await client.console.credentialProfiles.delete('cp-123');
+```
+
 ## Configuration
 
 ```javascript
@@ -510,6 +554,7 @@ MIT License - See LICENSE file for details.
 | GET /v1/console/card-templates/{id} | `console.readTemplate()` | Y |
 | POST /v1/console/card-templates/{id}/publish | `console.publishTemplate()` | Y |
 | POST /v1/console/card-templates/{id}/smart-tap/reveal | `console.revealSmartTap()` | Y |
+| DELETE /v1/console/card-templates/{id} | `console.deleteTemplate()` | Y |
 | GET .../logs | `console.eventLog()` | Y |
 | GET /v1/console/card-template-pairs | `console.listPassTemplatePairs()` | Y |
 | POST /v1/console/card-template-pairs | `console.createPassTemplatePair()` | Y |
@@ -518,11 +563,13 @@ MIT License - See LICENSE file for details.
 | GET /v1/console/webhooks | `console.webhooks.list()` | Y |
 | POST /v1/console/webhooks | `console.webhooks.create()` | Y |
 | DELETE /v1/console/webhooks/{id} | `console.webhooks.delete()` | Y |
+| POST /v1/console/webhooks/{id}/verify | `console.webhooks.verify()` | Y |
 | GET /v1/console/landing-pages | `console.listLandingPages()` | Y |
 | POST /v1/console/landing-pages | `console.createLandingPage()` | Y |
 | PUT /v1/console/landing-pages/{id} | `console.updateLandingPage()` | Y |
 | GET /v1/console/credential-profiles | `console.credentialProfiles.list()` | Y |
 | POST /v1/console/credential-profiles | `console.credentialProfiles.create()` | Y |
+| DELETE /v1/console/credential-profiles/{id} | `console.credentialProfiles.delete()` | Y |
 | POST /v1/console/hid/orgs | `console.hid.orgs.create()` | Y |
 | GET /v1/console/hid/orgs | `console.hid.orgs.list()` | Y |
 | POST /v1/console/hid/orgs/activate | `console.hid.orgs.activate()` | Y |
