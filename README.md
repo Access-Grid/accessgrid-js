@@ -127,6 +127,41 @@ const card = await client.accessCards.provision({
 });
 ```
 
+#### Aliro access data
+
+Passes issued against an Aliro template carry one or more Access Data Elements. Each element has an `identifier` and an `accessData` object:
+
+```javascript
+const card = await client.accessCards.provision({
+  cardTemplateId: "0xd3adb00b5",
+  fullName: "Employee Name",
+  startDate: "2025-01-31T22:46:25.601Z",
+  expirationDate: "2025-04-30T22:46:25.601Z",
+  aliroAccessDataElements: [
+    {
+      identifier: "front-door",
+      accessData: {
+        "0": 1,
+        "3": [{ "0": 1758499200, "1": 1790035200 }]
+      }
+    }
+  ]
+});
+```
+
+The keys inside `accessData` are the integer labels from CSA Aliro 1.0 §7.3, sent as strings — `"0"` is Version and must be `1`, `"3"` is Schedules. The SDK does not rename them, so the spec is your reference for the contents. Identifiers must be unique within a pass and 128 characters or fewer.
+
+Reading a pass back gives you the same structure under `aliroAccessDataElements`:
+
+```javascript
+const card = await client.accessCards.get({ cardId: "0xc4rd1d" });
+card.aliroAccessDataElements[0].identifier; // "front-door"
+```
+
+Once a device installs the pass, each entry in `card.devices` also carries the `aliro_credential_public_key` that device generated during provisioning. It is null until that install happens.
+
+Aliro templates are created through the normal template call with `protocol: "aliro"`. The protocol is Apple-only, so `platform` must be `"apple"`, and these templates go to `in-review` on publish rather than straight to `ready`.
+
 #### Manage card states
 
 ```javascript
