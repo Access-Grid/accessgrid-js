@@ -9,6 +9,22 @@ import {
   decryptEnvelope as decryptRevealEnvelope,
 } from "./smart_tap_reveal_crypto.js";
 
+// Aliro Access Data Elements are CSA Aliro 1.0 §7.3 structures: the keys inside
+// accessData are the spec's integer labels ("0" is Version, "3" is Schedules),
+// not SDK vocabulary. So only the element wrapper is translated between
+// accessData and access_data; everything below it passes through untouched.
+//
+// A non-array is left alone so the server's own validation message reaches the
+// caller rather than a TypeError from here.
+const mapAliroElements = (elements, accessDataKey) => {
+  if (!Array.isArray(elements)) return elements;
+
+  return elements.map(({ identifier, accessData, access_data }) => ({
+    identifier,
+    [accessDataKey]: accessData ?? access_data,
+  }));
+};
+
 // AccessCard model class
 class AccessCard {
   constructor(data = {}) {
@@ -30,6 +46,9 @@ class AccessCard {
     this.organizationName = data.organization_name;
     this.createdAt = data.created_at;
     this.devices = data.devices || [];
+    this.aliroAccessDataElements = data.aliro_access_data_elements
+      ? mapAliroElements(data.aliro_access_data_elements, "accessData")
+      : undefined;
     this.metadata = data.metadata || {};
   }
 
@@ -382,6 +401,8 @@ class AccessCardsApi extends BaseApi {
       barcodeData: "barcode_data",
       unitNumbers: "unit_numbers",
       parkingDetails: "parking_details",
+      // Aliro
+      aliroAccessDataElements: "aliro_access_data_elements",
     };
 
     // Add any params that exist to the request body
@@ -398,6 +419,15 @@ class AccessCardsApi extends BaseApi {
         requestBody[apiKey] = params[key];
       }
     });
+
+    // Runs after the loop so it catches the elements whether they arrived as
+    // aliroAccessDataElements or under the wire name.
+    if (requestBody.aliro_access_data_elements) {
+      requestBody.aliro_access_data_elements = mapAliroElements(
+        requestBody.aliro_access_data_elements,
+        "access_data",
+      );
+    }
 
     const response = await this.request("/v1/key-cards", {
       method: "POST",

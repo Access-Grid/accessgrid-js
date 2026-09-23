@@ -160,6 +160,83 @@ describe('AccessGrid SDK', () => {
       });
     });
 
+describe('aliro access data elements', () => {
+  // The "0" / "3" keys are CSA Aliro §7.3 integer labels and must survive
+  // the round trip untouched; only the element wrapper is translated.
+  const elements = [
+    { identifier: 'front-door', accessData: { '0': 1, '3': [{ '0': 1758499200 }] } }
+  ];
+
+  const bodyOf = (call) => JSON.parse(call[1].body);
+
+  test('sends camelCase accessData as access_data on the wire', async () => {
+    await client.accessCards.provision({
+      cardTemplateId: '0xd3adb00b5',
+      fullName: 'Employee name',
+      startDate: '2025-01-31T22:46:25.601Z',
+      expirationDate: '2025-04-30T22:46:25.601Z',
+      aliroAccessDataElements: elements
+    });
+
+    expect(bodyOf(fetch.mock.calls[0]).aliro_access_data_elements).toEqual([
+      { identifier: 'front-door', access_data: { '0': 1, '3': [{ '0': 1758499200 }] } }
+    ]);
+  });
+
+  test('accepts the wire spelling too', async () => {
+    await client.accessCards.provision({
+      cardTemplateId: '0xd3adb00b5',
+      fullName: 'Employee name',
+      startDate: '2025-01-31T22:46:25.601Z',
+      expirationDate: '2025-04-30T22:46:25.601Z',
+      aliro_access_data_elements: [
+        { identifier: 'front-door', access_data: { '0': 1 } }
+      ]
+    });
+
+    expect(bodyOf(fetch.mock.calls[0]).aliro_access_data_elements).toEqual([
+      { identifier: 'front-door', access_data: { '0': 1 } }
+    ]);
+  });
+
+  test('deserializes them back off a read as accessData', async () => {
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({
+        id: 'mock-id',
+        full_name: 'Test User',
+        aliro_access_data_elements: [
+          { identifier: 'front-door', access_data: { '0': 1, '3': [{ '0': 1758499200 }] } }
+        ]
+      })
+    });
+
+    const card = await client.accessCards.get({ cardId: '0xc4rd1d' });
+
+    expect(card.aliroAccessDataElements).toEqual([
+      { identifier: 'front-door', accessData: { '0': 1, '3': [{ '0': 1758499200 }] } }
+    ]);
+  });
+
+  test('is undefined on a card from a non-aliro template', async () => {
+    const card = await client.accessCards.get({ cardId: '0xc4rd1d' });
+    expect(card.aliroAccessDataElements).toBeUndefined();
+  });
+
+  test('passes a non-array through so the server reports it', async () => {
+    await client.accessCards.provision({
+      cardTemplateId: '0xd3adb00b5',
+      fullName: 'Employee name',
+      startDate: '2025-01-31T22:46:25.601Z',
+      expirationDate: '2025-04-30T22:46:25.601Z',
+      aliroAccessDataElements: { identifier: 'front-door' }
+    });
+
+    expect(bodyOf(fetch.mock.calls[0]).aliro_access_data_elements)
+      .toEqual({ identifier: 'front-door' });
+  });
+});
+
     describe('issue', () => {
       test('issue is an alias for provision', async () => {
         const spy = jest.spyOn(client.accessCards, 'provision');
