@@ -539,6 +539,63 @@ console.log(`AID: ${profile.aid}`);
 await client.console.credentialProfiles.delete('cp-123');
 ```
 
+### Aliro Configurations
+
+An Aliro signing configuration points at the service that signs access documents, and holds the issuer keys documents are signed under. A card template references one by id through `aliroIssuerKey`.
+
+#### List Aliro configurations
+
+```javascript
+const configurations = await client.console.aliroConfigurations.list();
+
+configurations.forEach(configuration => {
+  console.log(`${configuration.id}: ${configuration.name} -> ${configuration.signingUrl}`);
+  configuration.issuerKeys.forEach(key => console.log(`  key ${key.kid}`));
+});
+```
+
+#### Create an Aliro configuration
+
+```javascript
+const configuration = await client.console.aliroConfigurations.create({
+  name: 'Primary signing',
+  signingUrl: 'https://signer.example.com/sign',
+  bearerToken: 'your-signing-service-token'
+});
+```
+
+`bearerToken` is write-only. It is never returned, so `configuration.bearerToken` is always undefined.
+
+#### Register an issuer key
+
+```javascript
+const key = await client.console.aliroConfigurations.createKey({
+  configurationId: configuration.id,
+  name: 'rotation-1',
+  // Uncompressed P-256 point as hex: 04 followed by 128 hex characters.
+  publicKey: aliroPublicKeyHex
+});
+
+console.log(`kid: ${key.kid}`);
+```
+
+`publicKey` is the uncompressed P-256 point as hex: `04` followed by the 32-byte X and Y coordinates, 130 characters in total. It is not a PEM. A PEM is that same point in SPKI DER, base64'd with header lines, and it is rejected on sight.
+
+The hex is the canonical form because `kid` is derived from it, by hashing the packed bytes. The server also checks the point actually lies on the curve, since a well-formed value off the curve would register cleanly and only fail later at signature verification or at a door.
+
+Keys are append-only: a key is registered once and retired, never edited, because changing a public key in place would change its `kid` and orphan every document already signed under the old one. `certificate` is optional and, like `bearerToken`, is write-only.
+
+Attach a key to a template with `aliroIssuerKey`, which takes the key id:
+
+```javascript
+await client.console.updateTemplate({
+  cardTemplateId: template.id,
+  aliroIssuerKey: key.id
+});
+```
+
+This is accepted only on templates whose protocol is `aliro`.
+
 ## Configuration
 
 ```javascript
@@ -608,3 +665,6 @@ MIT License - See LICENSE file for details.
 | POST /v1/console/hid/orgs | `console.hid.orgs.create()` | Y |
 | GET /v1/console/hid/orgs | `console.hid.orgs.list()` | Y |
 | POST /v1/console/hid/orgs/activate | `console.hid.orgs.activate()` | Y |
+| GET /v1/console/aliro-configurations | `console.aliroConfigurations.list()` | Y |
+| POST /v1/console/aliro-configurations | `console.aliroConfigurations.create()` | Y |
+| POST /v1/console/aliro-configurations/{id}/keys | `console.aliroConfigurations.createKey()` | Y |

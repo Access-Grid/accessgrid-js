@@ -1,4 +1,4 @@
-import AccessGrid, { AccessGridError, AuthenticationError, AccessCard, Template, PassTemplatePair, TemplateInfo, HIDOrg, LedgerItem, LedgerItemAccessPass, LedgerItemPassTemplate, LandingPage, CredentialProfile, Webhook, WebhookVerification } from '../src/index';
+import AccessGrid, { AccessGridError, AuthenticationError, AccessCard, Template, PassTemplatePair, TemplateInfo, HIDOrg, LedgerItem, LedgerItemAccessPass, LedgerItemPassTemplate, LandingPage, CredentialProfile, AliroConfiguration, AliroIssuerKey, Webhook, WebhookVerification } from '../src/index';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Global mocks
@@ -1653,6 +1653,120 @@ describe('aliro access data elements', () => {
   // ════════════════════════════════════════════════════════════════════════════
   // Webhooks
   // ════════════════════════════════════════════════════════════════════════════
+
+  describe('Aliro Configurations', () => {
+    // Shaped like the real thing and obviously not one: the server wants an
+    // uncompressed P-256 point as hex, 04 followed by 128 hex characters.
+    // The SDK does no validation, so the digits only need the right shape.
+    const PUBLIC_KEY_HEX = '04' + 'a'.repeat(128);
+    const KID = 'test-kid';
+    const configResponse = {
+      id: 'cfg_123',
+      name: 'Primary signing',
+      signing_url: 'https://signer.example.com/sign',
+      created_at: '2026-10-01T00:00:00Z',
+      issuer_keys: [
+        { id: 'key_1', name: 'rotation-1', kid: KID, public_key: PUBLIC_KEY_HEX, created_at: '2026-10-01T00:00:00Z' }
+      ]
+    };
+
+    const bodyOf = (call) => JSON.parse(call[1].body);
+
+    test('list returns AliroConfiguration instances with nested keys', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve([configResponse])
+      });
+
+      const result = await client.console.aliroConfigurations.list();
+
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/v1/console/aliro-configurations'),
+        expect.objectContaining({ method: 'GET' })
+      );
+      expect(result[0]).toBeInstanceOf(AliroConfiguration);
+      expect(result[0].signingUrl).toBe('https://signer.example.com/sign');
+      expect(result[0].issuerKeys[0]).toBeInstanceOf(AliroIssuerKey);
+      expect(result[0].issuerKeys[0].kid).toBe(KID);
+    });
+
+    test('list handles an empty response', async () => {
+      global.fetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve([]) });
+      await expect(client.console.aliroConfigurations.list()).resolves.toEqual([]);
+    });
+
+    test('create snake_cases the params', async () => {
+      global.fetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(configResponse) });
+
+      await client.console.aliroConfigurations.create({
+        name: 'Primary signing',
+        signingUrl: 'https://signer.example.com/sign',
+        bearerToken: 'secret-token'
+      });
+
+      expect(bodyOf(fetch.mock.calls[0])).toEqual({
+        name: 'Primary signing',
+        signing_url: 'https://signer.example.com/sign',
+        bearer_token: 'secret-token'
+      });
+    });
+
+    test('create does not surface bearerToken on the response', async () => {
+      global.fetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(configResponse) });
+      const result = await client.console.aliroConfigurations.create({ name: 'x' });
+      expect(result.bearerToken).toBeUndefined();
+    });
+
+    test('createKey posts to the configuration and returns an AliroIssuerKey', async () => {
+      const keyResponse = {
+        id: 'key_1', name: 'rotation-1', kid: KID,
+        public_key: PUBLIC_KEY_HEX, created_at: '2026-10-01T00:00:00Z'
+      };
+      global.fetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(keyResponse) });
+
+      const result = await client.console.aliroConfigurations.createKey({
+        configurationId: 'cfg_123',
+        name: 'rotation-1',
+        publicKey: PUBLIC_KEY_HEX
+      });
+
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/v1/console/aliro-configurations/cfg_123/keys'),
+        expect.objectContaining({ method: 'POST' })
+      );
+      expect(bodyOf(fetch.mock.calls[0])).toEqual({
+        name: 'rotation-1',
+        public_key: PUBLIC_KEY_HEX
+      });
+      expect(result).toBeInstanceOf(AliroIssuerKey);
+      expect(result.kid).toBe(KID);
+    });
+
+    test('createKey omits certificate when not given and sends it when given', async () => {
+      global.fetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({ id: 'key_1' }) });
+
+      await client.console.aliroConfigurations.createKey({
+        configurationId: 'cfg_123', name: 'n', publicKey: PUBLIC_KEY_HEX, certificate: 'cert-pem'
+      });
+
+      expect(bodyOf(fetch.mock.calls[0]).certificate).toBe('cert-pem');
+    });
+  });
+
+  describe('createTemplate aliroIssuerKey', () => {
+    test('sends aliroIssuerKey as aliro_issuer_key', async () => {
+      await client.console.createTemplate({
+        name: 'Aliro Badge',
+        platform: 'apple',
+        protocol: 'aliro',
+        aliroIssuerKey: 'key_abc'
+      });
+
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.aliro_issuer_key).toBe('key_abc');
+      expect(body.protocol).toBe('aliro');
+    });
+  });
 
   describe('Webhooks', () => {
     test('Webhook model should have correct properties', () => {

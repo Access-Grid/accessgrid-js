@@ -192,7 +192,7 @@ class BaseApi {
     this.accountId = accountId;
     this.secretKey = secretKey;
     this.baseUrl = baseUrl.replace(/\/$/, ""); // Remove trailing slash if present
-    this.version = "1.6.0-preview.1"; // Should come from package.json
+    this.version = "1.6.0-preview.2"; // Should come from package.json
   }
 
   async request(path, options = {}) {
@@ -537,6 +537,46 @@ class AccessCardsApi extends BaseApi {
   }
 }
 
+// Aliro signing configurations and their issuer keys.
+class AliroConfigurationsApi extends BaseApi {
+  constructor(accountId, secretKey, baseUrl) {
+    super(accountId, secretKey, baseUrl);
+  }
+
+  async list() {
+    const response = await this.request("/v1/console/aliro-configurations");
+    const configurations = Array.isArray(response) ? response : [];
+    return configurations.map((c) => new AliroConfiguration(c));
+  }
+
+  async create(params) {
+    const response = await this.request("/v1/console/aliro-configurations", {
+      method: "POST",
+      body: {
+        name: params.name,
+        signing_url: params.signingUrl,
+        bearer_token: params.bearerToken,
+      },
+    });
+    return new AliroConfiguration(response);
+  }
+
+  // Register an issuer key against a configuration.
+  async createKey(params) {
+    const body = {
+      name: params.name,
+      public_key: params.publicKey,
+    };
+    if (params.certificate) body.certificate = params.certificate;
+
+    const response = await this.request(
+      `/v1/console/aliro-configurations/${params.configurationId}/keys`,
+      { method: "POST", body },
+    );
+    return new AliroIssuerKey(response);
+  }
+}
+
 // Enterprise Console API handling
 class ConsoleApi extends BaseApi {
   constructor(accountId, secretKey, baseUrl) {
@@ -546,6 +586,11 @@ class ConsoleApi extends BaseApi {
     };
     this.webhooks = new WebhooksApi(accountId, secretKey, baseUrl);
     this.credentialProfiles = new CredentialProfilesApi(
+      accountId,
+      secretKey,
+      baseUrl,
+    );
+    this.aliroConfigurations = new AliroConfigurationsApi(
       accountId,
       secretKey,
       baseUrl,
@@ -571,6 +616,7 @@ class ConsoleApi extends BaseApi {
       termsAndConditionsUrl: "terms_and_conditions_url",
       logo: "logo",
       metadata: "metadata",
+      aliroIssuerKey: "aliro_issuer_key",
     };
 
     const body = {};
@@ -902,6 +948,32 @@ class CredentialProfile {
   }
 }
 
+// An Aliro issuer key. Keys are append-only on the server: registered once
+// and retired, never edited. The certificate is write-only and never returned.
+class AliroIssuerKey {
+  constructor(data = {}) {
+    this.id = data.id;
+    this.name = data.name;
+    this.kid = data.kid;
+    this.publicKey = data.public_key;
+    this.createdAt = data.created_at;
+  }
+}
+
+// An Aliro signing configuration. bearerToken is write-only: the server never
+// returns it, so there is no field for it here.
+class AliroConfiguration {
+  constructor(data = {}) {
+    this.id = data.id;
+    this.name = data.name;
+    this.signingUrl = data.signing_url;
+    this.issuerKeys = (data.issuer_keys || []).map(
+      (k) => new AliroIssuerKey(k),
+    );
+    this.createdAt = data.created_at;
+  }
+}
+
 // Webhook model class
 class Webhook {
   constructor(data = {}) {
@@ -1034,6 +1106,8 @@ export {
   LedgerItemPassTemplate,
   LandingPage,
   CredentialProfile,
+  AliroConfiguration,
+  AliroIssuerKey,
   Webhook,
   WebhookVerification,
   PublishTemplateResponse,
