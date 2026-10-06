@@ -74,6 +74,9 @@ class Template {
     this.termsSettings = data.terms_settings;
     this.styleSettings = data.style_settings;
     this.metadata = data.metadata;
+    // Returned only on Aliro templates, as the ids of the attached records.
+    this.aliroIssuerKey = data.aliro_issuer_key;
+    this.aliroReaderGroup = data.aliro_reader_group;
 
     // Convenience: derive allowOnMultipleDevices from allowed_device_counts
     if (this.allowedDeviceCounts) {
@@ -192,7 +195,7 @@ class BaseApi {
     this.accountId = accountId;
     this.secretKey = secretKey;
     this.baseUrl = baseUrl.replace(/\/$/, ""); // Remove trailing slash if present
-    this.version = "1.6.0-preview.2"; // Should come from package.json
+    this.version = "1.6.0-preview.3"; // Should come from package.json
   }
 
   async request(path, options = {}) {
@@ -577,6 +580,37 @@ class AliroConfigurationsApi extends BaseApi {
   }
 }
 
+// Aliro reader groups.
+class AliroReaderGroupsApi extends BaseApi {
+  constructor(accountId, secretKey, baseUrl) {
+    super(accountId, secretKey, baseUrl);
+  }
+
+  async list() {
+    const response = await this.request("/v1/console/aliro-reader-groups");
+    const groups = Array.isArray(response) ? response : [];
+    return groups.map((g) => new AliroReaderGroup(g));
+  }
+
+  async create(params) {
+    const body = {
+      name: params.name,
+      reader_group_identifier: params.readerGroupIdentifier,
+      reader_ca_public_key: params.readerCaPublicKey,
+    };
+    // The server defaults this to 1, so only send it when asked for.
+    if (params.readerCaMaxDepth !== undefined) {
+      body.reader_ca_max_depth = params.readerCaMaxDepth;
+    }
+
+    const response = await this.request("/v1/console/aliro-reader-groups", {
+      method: "POST",
+      body,
+    });
+    return new AliroReaderGroup(response);
+  }
+}
+
 // Enterprise Console API handling
 class ConsoleApi extends BaseApi {
   constructor(accountId, secretKey, baseUrl) {
@@ -591,6 +625,11 @@ class ConsoleApi extends BaseApi {
       baseUrl,
     );
     this.aliroConfigurations = new AliroConfigurationsApi(
+      accountId,
+      secretKey,
+      baseUrl,
+    );
+    this.aliroReaderGroups = new AliroReaderGroupsApi(
       accountId,
       secretKey,
       baseUrl,
@@ -617,6 +656,7 @@ class ConsoleApi extends BaseApi {
       logo: "logo",
       metadata: "metadata",
       aliroIssuerKey: "aliro_issuer_key",
+      aliroReaderGroup: "aliro_reader_group",
     };
 
     const body = {};
@@ -960,6 +1000,19 @@ class AliroIssuerKey {
   }
 }
 
+// A group of readers a credential is allowed to talk to. The CA public key is
+// what the device verifies a reader's certificate against at the door.
+class AliroReaderGroup {
+  constructor(data = {}) {
+    this.id = data.id;
+    this.name = data.name;
+    this.readerGroupIdentifier = data.reader_group_identifier;
+    this.readerCaPublicKey = data.reader_ca_public_key;
+    this.readerCaMaxDepth = data.reader_ca_max_depth;
+    this.createdAt = data.created_at;
+  }
+}
+
 // An Aliro signing configuration. bearerToken is write-only: the server never
 // returns it, so there is no field for it here.
 class AliroConfiguration {
@@ -1108,6 +1161,7 @@ export {
   CredentialProfile,
   AliroConfiguration,
   AliroIssuerKey,
+  AliroReaderGroup,
   Webhook,
   WebhookVerification,
   PublishTemplateResponse,

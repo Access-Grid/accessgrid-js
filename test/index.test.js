@@ -1,4 +1,4 @@
-import AccessGrid, { AccessGridError, AuthenticationError, AccessCard, Template, PassTemplatePair, TemplateInfo, HIDOrg, LedgerItem, LedgerItemAccessPass, LedgerItemPassTemplate, LandingPage, CredentialProfile, AliroConfiguration, AliroIssuerKey, Webhook, WebhookVerification } from '../src/index';
+import AccessGrid, { AccessGridError, AuthenticationError, AccessCard, Template, PassTemplatePair, TemplateInfo, HIDOrg, LedgerItem, LedgerItemAccessPass, LedgerItemPassTemplate, LandingPage, CredentialProfile, AliroConfiguration, AliroIssuerKey, AliroReaderGroup, Webhook, WebhookVerification } from '../src/index';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Global mocks
@@ -1750,6 +1750,133 @@ describe('aliro access data elements', () => {
       });
 
       expect(bodyOf(fetch.mock.calls[0]).certificate).toBe('cert-pem');
+    });
+  });
+
+  describe('Aliro Reader Groups', () => {
+    // 16 bytes of hex per CSA Aliro §6.2; shaped right, obviously not real.
+    const IDENTIFIER = 'a'.repeat(32);
+    const CA_PUBLIC_KEY = '04' + 'b'.repeat(128);
+
+    const groupResponse = {
+      id: 'rg_123',
+      name: 'Main building readers',
+      reader_group_identifier: IDENTIFIER,
+      reader_ca_public_key: CA_PUBLIC_KEY,
+      reader_ca_max_depth: 1,
+      created_at: '2026-10-06T00:00:00Z'
+    };
+
+    const bodyOf = (call) => JSON.parse(call[1].body);
+
+    test('list returns AliroReaderGroup instances', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve([groupResponse])
+      });
+
+      const result = await client.console.aliroReaderGroups.list();
+
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/v1/console/aliro-reader-groups'),
+        expect.objectContaining({ method: 'GET' })
+      );
+      expect(result[0]).toBeInstanceOf(AliroReaderGroup);
+      expect(result[0].readerGroupIdentifier).toBe(IDENTIFIER);
+      expect(result[0].readerCaMaxDepth).toBe(1);
+    });
+
+    test('list handles an empty response', async () => {
+      global.fetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve([]) });
+      await expect(client.console.aliroReaderGroups.list()).resolves.toEqual([]);
+    });
+
+    test('create snake_cases the params', async () => {
+      global.fetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(groupResponse) });
+
+      await client.console.aliroReaderGroups.create({
+        name: 'Main building readers',
+        readerGroupIdentifier: IDENTIFIER,
+        readerCaPublicKey: CA_PUBLIC_KEY,
+        readerCaMaxDepth: 2
+      });
+
+      expect(bodyOf(fetch.mock.calls[0])).toEqual({
+        name: 'Main building readers',
+        reader_group_identifier: IDENTIFIER,
+        reader_ca_public_key: CA_PUBLIC_KEY,
+        reader_ca_max_depth: 2
+      });
+    });
+
+    test('create omits reader_ca_max_depth so the server default applies', async () => {
+      global.fetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(groupResponse) });
+
+      await client.console.aliroReaderGroups.create({
+        name: 'Main building readers',
+        readerGroupIdentifier: IDENTIFIER,
+        readerCaPublicKey: CA_PUBLIC_KEY
+      });
+
+      expect(bodyOf(fetch.mock.calls[0])).not.toHaveProperty('reader_ca_max_depth');
+    });
+
+    test('create sends reader_ca_max_depth when it is zero', async () => {
+      global.fetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(groupResponse) });
+
+      await client.console.aliroReaderGroups.create({
+        name: 'n',
+        readerGroupIdentifier: IDENTIFIER,
+        readerCaPublicKey: CA_PUBLIC_KEY,
+        readerCaMaxDepth: 0
+      });
+
+      expect(bodyOf(fetch.mock.calls[0]).reader_ca_max_depth).toBe(0);
+    });
+  });
+
+  describe('Template aliro associations', () => {
+    test('createTemplate sends both aliro association ids', async () => {
+      await client.console.createTemplate({
+        name: 'Aliro Badge',
+        platform: 'apple',
+        protocol: 'aliro',
+        aliroIssuerKey: 'key_abc',
+        aliroReaderGroup: 'rg_123'
+      });
+
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.aliro_issuer_key).toBe('key_abc');
+      expect(body.aliro_reader_group).toBe('rg_123');
+    });
+
+    test('readTemplate exposes both association ids', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          id: 'tpl_1',
+          protocol: 'aliro',
+          aliro_issuer_key: 'key_abc',
+          aliro_reader_group: 'rg_123'
+        })
+      });
+
+      const template = await client.console.readTemplate({ cardTemplateId: 'tpl_1' });
+
+      expect(template.aliroIssuerKey).toBe('key_abc');
+      expect(template.aliroReaderGroup).toBe('rg_123');
+    });
+
+    test('both are undefined on a non-aliro template', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ id: 'tpl_2', protocol: 'desfire' })
+      });
+
+      const template = await client.console.readTemplate({ cardTemplateId: 'tpl_2' });
+
+      expect(template.aliroIssuerKey).toBeUndefined();
+      expect(template.aliroReaderGroup).toBeUndefined();
     });
   });
 

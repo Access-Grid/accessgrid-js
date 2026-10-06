@@ -585,16 +585,60 @@ The hex is the canonical form because `kid` is derived from it, by hashing the p
 
 Keys are append-only: a key is registered once and retired, never edited, because changing a public key in place would change its `kid` and orphan every document already signed under the old one. `certificate` is optional and, like `bearerToken`, is write-only.
 
-Attach a key to a template with `aliroIssuerKey`, which takes the key id:
+A template references a key by id through `aliroIssuerKey`, set when the template is created. See Aliro Reader Groups below for the full creation call, since an Aliro template needs both a key and a reader group.
+
+### Aliro Reader Groups
+
+A reader group names the set of readers a credential may talk to, and carries the CA public key the device verifies a reader's certificate against.
+
+#### List reader groups
 
 ```javascript
-await client.console.updateTemplate({
-  cardTemplateId: template.id,
-  aliroIssuerKey: key.id
+const groups = await client.console.aliroReaderGroups.list();
+
+groups.forEach(group => {
+  console.log(`${group.id}: ${group.name} (${group.readerGroupIdentifier})`);
 });
 ```
 
-This is accepted only on templates whose protocol is `aliro`.
+#### Create a reader group
+
+```javascript
+const group = await client.console.aliroReaderGroups.create({
+  name: 'Main building readers',
+  // 16 bytes as hex, 32 characters, set when a reader is commissioned.
+  readerGroupIdentifier: readerGroupIdentifierHex,
+  // Hex public key: 128 characters, or 130 with an 04 prefix.
+  readerCaPublicKey: readerCaPublicKeyHex
+});
+```
+
+`readerCaMaxDepth` is optional and defaults to 1 on the server. Pass it only when you need a different certificate chain depth; `0` is a valid value and is sent as given.
+
+Like issuer keys, a reader group cannot be removed while any card template still references it.
+
+#### Creating an Aliro card template
+
+An Aliro template requires both an issuer key and a reader group, and both are set at creation. `updateTemplate` does not change them.
+
+```javascript
+const template = await client.console.createTemplate({
+  name: 'Aliro Badge',
+  platform: 'apple',
+  protocol: 'aliro',
+  useCase: 'multi_family',
+  aliroIssuerKey: key.id,
+  aliroReaderGroup: group.id
+});
+```
+
+Reading the template back returns both ids, on Aliro templates only:
+
+```javascript
+const read = await client.console.readTemplate({ cardTemplateId: template.id });
+read.aliroIssuerKey;    // 'key_abc'
+read.aliroReaderGroup;  // 'rg_123'
+```
 
 ## Configuration
 
@@ -668,3 +712,5 @@ MIT License - See LICENSE file for details.
 | GET /v1/console/aliro-configurations | `console.aliroConfigurations.list()` | Y |
 | POST /v1/console/aliro-configurations | `console.aliroConfigurations.create()` | Y |
 | POST /v1/console/aliro-configurations/{id}/keys | `console.aliroConfigurations.createKey()` | Y |
+| GET /v1/console/aliro-reader-groups | `console.aliroReaderGroups.list()` | Y |
+| POST /v1/console/aliro-reader-groups | `console.aliroReaderGroups.create()` | Y |
