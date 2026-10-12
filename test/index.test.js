@@ -1742,6 +1742,42 @@ describe('aliro access data elements', () => {
       expect(result.kid).toBe(KID);
     });
 
+    test('updateKey PUTs to the key and sends only the certificate', async () => {
+      const keyResponse = {
+        id: 'key_1', name: 'rotation-1', kid: KID,
+        public_key: PUBLIC_KEY_HEX, created_at: '2026-10-12T00:00:00Z'
+      };
+      global.fetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(keyResponse) });
+
+      const result = await client.console.aliroConfigurations.updateKey({
+        configurationId: 'cfg_123',
+        keyId: 'key_1',
+        certificate: 'cert-pem'
+      });
+
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/v1/console/aliro-configurations/cfg_123/keys/key_1'),
+        expect.objectContaining({ method: 'PUT' })
+      );
+      expect(bodyOf(fetch.mock.calls[0])).toEqual({ certificate: 'cert-pem' });
+      expect(result).toBeInstanceOf(AliroIssuerKey);
+      expect(result.kid).toBe(KID);
+    });
+
+    test('updateKey surfaces the server error on a mismatched certificate', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 422,
+        json: () => Promise.resolve({
+          status: 'error',
+          message: ['Certificate does not contain the registered public key']
+        })
+      });
+
+      await expect(client.console.aliroConfigurations.updateKey({
+        configurationId: 'cfg_123', keyId: 'key_1', certificate: 'wrong-cert'
+      })).rejects.toThrow('Certificate does not contain the registered public key');
+    });
     test('createKey omits certificate when not given and sends it when given', async () => {
       global.fetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({ id: 'key_1' }) });
 

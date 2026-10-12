@@ -587,6 +587,20 @@ Keys are append-only: a key is registered once and retired, never edited, becaus
 
 A template references a key by id through `aliroIssuerKey`, set when the template is created. See Aliro Reader Groups below for the full creation call, since an Aliro template needs both a key and a reader group.
 
+#### Update a key's certificate
+
+> This endpoint is provisional and may be removed in a later release. It is here to unblock work in progress, so treat it as subject to change rather than part of the stable surface.
+
+```javascript
+const updated = await client.console.aliroConfigurations.updateKey({
+  configurationId: configuration.id,
+  keyId: key.id,
+  certificate: certificatePem
+});
+```
+
+`certificate` is the only updatable field on a key. The server checks the certificate parses and contains the public key already registered, so it cannot be pointed at a different key. To use a different public key, register a new key instead.
+
 ### Aliro Reader Groups
 
 A reader group names the set of readers a credential may talk to, and carries the CA public key the device verifies a reader's certificate against.
@@ -712,5 +726,6 @@ MIT License - See LICENSE file for details.
 | GET /v1/console/aliro-configurations | `console.aliroConfigurations.list()` | Y |
 | POST /v1/console/aliro-configurations | `console.aliroConfigurations.create()` | Y |
 | POST /v1/console/aliro-configurations/{id}/keys | `console.aliroConfigurations.createKey()` | Y |
+| PUT /v1/console/aliro-configurations/{id}/keys/{key_id} | `console.aliroConfigurations.updateKey()` | Y (provisional) |
 | GET /v1/console/aliro-reader-groups | `console.aliroReaderGroups.list()` | Y |
 | POST /v1/console/aliro-reader-groups | `console.aliroReaderGroups.create()` | Y |

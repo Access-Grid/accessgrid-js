@@ -195,7 +195,7 @@ class BaseApi {
     this.accountId = accountId;
     this.secretKey = secretKey;
     this.baseUrl = baseUrl.replace(/\/$/, ""); // Remove trailing slash if present
-    this.version = "1.6.0-preview.3"; // Should come from package.json
+    this.version = "1.6.0-preview.4"; // Should come from package.json
   }
 
   async request(path, options = {}) {
@@ -575,6 +575,23 @@ class AliroConfigurationsApi extends BaseApi {
     const response = await this.request(
       `/v1/console/aliro-configurations/${params.configurationId}/keys`,
       { method: "POST", body },
+    );
+    return new AliroIssuerKey(response);
+  }
+
+  // Replace the certificate on a registered key. The certificate is the only
+  // updatable field: the public key cannot change, because kid is derived
+  // from it and every document already signed under the old kid would be
+  // orphaned. The server rejects a certificate that does not contain the
+  // key already registered.
+  //
+  // Provisional: this route exists to unblock work in progress and may be
+  // withdrawn. The README says so too. Expect to delete this method rather
+  // than deprecate it.
+  async updateKey(params) {
+    const response = await this.request(
+      `/v1/console/aliro-configurations/${params.configurationId}/keys/${params.keyId}`,
+      { method: "PUT", body: { certificate: params.certificate } },
     );
     return new AliroIssuerKey(response);
   }
