@@ -195,7 +195,7 @@ class BaseApi {
     this.accountId = accountId;
     this.secretKey = secretKey;
     this.baseUrl = baseUrl.replace(/\/$/, ""); // Remove trailing slash if present
-    this.version = "1.6.0-preview.4"; // Should come from package.json
+    this.version = "1.6.0-preview.5"; // Should come from package.json
   }
 
   async request(path, options = {}) {
@@ -484,6 +484,8 @@ class AccessCardsApi extends BaseApi {
       barcodeData: "barcode_data",
       unitNumbers: "unit_numbers",
       parkingDetails: "parking_details",
+      // Aliro
+      aliroAccessDataElements: "aliro_access_data_elements",
     };
 
     // Add any params that exist to the request body
@@ -497,6 +499,15 @@ class AccessCardsApi extends BaseApi {
         requestBody[apiKey] = params[key];
       }
     });
+
+    // Same shape as provision: the elements arrive under either spelling and
+    // go out under the wire one.
+    if (requestBody.aliro_access_data_elements) {
+      requestBody.aliro_access_data_elements = mapAliroElements(
+        requestBody.aliro_access_data_elements,
+        "access_data",
+      );
+    }
 
     const response = await this.request(`/v1/key-cards/${params.cardId}`, {
       method: "PATCH",
