@@ -199,6 +199,31 @@ describe('aliro access data elements', () => {
     ]);
   });
 
+  test('update sends camelCase accessData as access_data on the wire', async () => {
+    await client.accessCards.update({
+      cardId: '0xc4rd1d',
+      aliroAccessDataElements: elements
+    });
+
+    const call = fetch.mock.calls[0];
+    expect(call[1].method).toBe('PATCH');
+    expect(bodyOf(call).aliro_access_data_elements).toEqual([
+      { identifier: 'front-door', access_data: { '0': 1, '3': [{ '0': 1758499200 }] } }
+    ]);
+  });
+
+  test('update accepts the wire spelling too', async () => {
+    await client.accessCards.update({
+      cardId: '0xc4rd1d',
+      aliro_access_data_elements: [
+        { identifier: 'side-gate', access_data: { '0': 1 } }
+      ]
+    });
+
+    expect(bodyOf(fetch.mock.calls[0]).aliro_access_data_elements).toEqual([
+      { identifier: 'side-gate', access_data: { '0': 1 } }
+    ]);
+  });
   test('deserializes them back off a read as accessData', async () => {
     global.fetch.mockResolvedValueOnce({
       ok: true,

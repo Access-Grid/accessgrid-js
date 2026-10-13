@@ -158,6 +158,17 @@ const card = await client.accessCards.get({ cardId: "0xc4rd1d" });
 card.aliroAccessDataElements[0].identifier; // "front-door"
 ```
 
+`update()` takes the same parameter, in either spelling, to replace the elements on an existing pass:
+
+```javascript
+await client.accessCards.update({
+  cardId: "0xc4rd1d",
+  aliroAccessDataElements: [
+    { identifier: "front-door", accessData: { "0": 1 } }
+  ]
+});
+```
+
 Once a device installs the pass, each entry in `card.devices` also carries the `aliro_credential_public_key` that device generated during provisioning. It is null until that install happens.
 
 Aliro templates are created through the normal template call with `protocol: "aliro"`. The protocol is Apple-only, so `platform` must be `"apple"`, and these templates go to `in-review` on publish rather than straight to `ready`.
