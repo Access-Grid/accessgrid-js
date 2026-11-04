@@ -1,4 +1,4 @@
-import AccessGrid, { AccessGridError, AuthenticationError, AccessCard, Template, PassTemplatePair, TemplateInfo, HIDOrg, LedgerItem, LedgerItemAccessPass, LedgerItemPassTemplate, LandingPage, CredentialProfile, AliroConfiguration, AliroIssuerKey, AliroReaderGroup, Webhook, WebhookVerification } from '../src/index';
+import AccessGrid, { AccessGridError, AuthenticationError, AccessCard, EmployeePhotoMetadata, Template, PassTemplatePair, TemplateInfo, HIDOrg, LedgerItem, LedgerItemAccessPass, LedgerItemPassTemplate, LandingPage, CredentialProfile, AliroConfiguration, AliroIssuerKey, AliroReaderGroup, Webhook, WebhookVerification } from '../src/index';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Global mocks
@@ -303,6 +303,131 @@ describe('aliro access data elements', () => {
       });
     });
 
+    describe('update field name mapping', () => {
+      test('snake_cases every writable field the server permits', async () => {
+        await client.accessCards.update({
+          cardId: '0xc4rd1d',
+          department: 'Eng',
+          location: 'SFO',
+          workstation: 'd12',
+          siteName: 'HQ',
+          mailStop: 'MS-4',
+          companyAddress: '123 Main St'
+        });
+
+        expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({
+          department: 'Eng',
+          location: 'SFO',
+          workstation: 'd12',
+          site_name: 'HQ',
+          mail_stop: 'MS-4',
+          company_address: '123 Main St'
+        });
+      });
+    });
+    describe('writable fields on read', () => {
+      // AGENG-1285: get() and update() return the fields update can write, so
+      // a caller can read back what it wrote. provision() does not.
+      const fullResponse = {
+        id: 'mock-id',
+        full_name: 'Test User',
+        employee_id: 'E-1',
+        classification: 'full_time',
+        department: 'Engineering',
+        location: 'SFO',
+        site_name: 'HQ',
+        workstation: 'desk-12',
+        mail_stop: 'MS-4',
+        company_address: '123 Main St',
+        title: 'Engineer',
+        property_name: 'Sunset Apartments',
+        property_address: '100 Market St',
+        building_name: 'Building A',
+        storage_unit: 'S-12',
+        parking_address: '100 Market St Garage',
+        barcode_data: 'RESIDENT-205',
+        unit_numbers: ['205', '206'],
+        parking_details: [{ label: 'Garage', value: 'Two' }],
+        employee_photo_metadata: {
+          checksum: 'abc==', content_type: 'image/png', byte_size: 12345
+        }
+      };
+
+      test('get deserializes every writable field', async () => {
+        global.fetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(fullResponse)
+        });
+
+        const card = await client.accessCards.get({ cardId: '0xc4rd1d' });
+
+        expect(card.classification).toBe('full_time');
+        expect(card.department).toBe('Engineering');
+        expect(card.location).toBe('SFO');
+        expect(card.siteName).toBe('HQ');
+        expect(card.workstation).toBe('desk-12');
+        expect(card.mailStop).toBe('MS-4');
+        expect(card.companyAddress).toBe('123 Main St');
+        expect(card.propertyName).toBe('Sunset Apartments');
+        expect(card.propertyAddress).toBe('100 Market St');
+        expect(card.buildingName).toBe('Building A');
+        expect(card.storageUnit).toBe('S-12');
+        expect(card.parkingAddress).toBe('100 Market St Garage');
+        expect(card.barcodeData).toBe('RESIDENT-205');
+        expect(card.unitNumbers).toEqual(['205', '206']);
+        expect(card.parkingDetails).toEqual([{ label: 'Garage', value: 'Two' }]);
+      });
+
+      test('employeePhotoMetadata camelCases the blob fields', async () => {
+        global.fetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(fullResponse)
+        });
+
+        const card = await client.accessCards.get({ cardId: '0xc4rd1d' });
+
+        expect(card.employeePhotoMetadata).toBeInstanceOf(EmployeePhotoMetadata);
+        expect(card.employeePhotoMetadata.checksum).toBe('abc==');
+        expect(card.employeePhotoMetadata.contentType).toBe('image/png');
+        expect(card.employeePhotoMetadata.byteSize).toBe(12345);
+      });
+
+      test('employeePhotoMetadata is null when no photo is attached', async () => {
+        global.fetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ id: 'mock-id', employee_photo_metadata: null })
+        });
+
+        const card = await client.accessCards.get({ cardId: '0xc4rd1d' });
+        expect(card.employeePhotoMetadata).toBeNull();
+      });
+
+      test('the array fields default to empty rather than undefined', async () => {
+        global.fetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ id: 'mock-id' })
+        });
+
+        const card = await client.accessCards.get({ cardId: '0xc4rd1d' });
+        expect(card.unitNumbers).toEqual([]);
+        expect(card.parkingDetails).toEqual([]);
+      });
+
+      test('update returns them too', async () => {
+        global.fetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(fullResponse)
+        });
+
+        const card = await client.accessCards.update({
+          cardId: '0xc4rd1d',
+          department: 'Engineering'
+        });
+
+        expect(card.department).toBe('Engineering');
+        expect(card.unitNumbers).toEqual(['205', '206']);
+      });
+    });
     describe('update', () => {
       const mockUpdateParams = {
         cardId: '0xc4rd1d',
