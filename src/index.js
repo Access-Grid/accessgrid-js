@@ -25,6 +25,17 @@ const mapAliroElements = (elements, accessDataKey) => {
   }));
 };
 
+// Metadata for an attached employee photo. Deliberately not called
+// employeePhoto: that name is the base64 string you send on write, and the
+// bytes are never returned. These three values come off the stored blob.
+class EmployeePhotoMetadata {
+  constructor(data = {}) {
+    this.checksum = data.checksum;
+    this.contentType = data.content_type;
+    this.byteSize = data.byte_size;
+  }
+}
+
 // AccessCard model class
 class AccessCard {
   constructor(data = {}) {
@@ -44,6 +55,27 @@ class AccessCard {
     this.temporary = data.temporary;
     this.employeeId = data.employee_id;
     this.organizationName = data.organization_name;
+    // Returned by get() and update(), not by provision(). Every pass carries
+    // all of these keys; a field its template does not use comes back empty.
+    this.classification = data.classification;
+    this.department = data.department;
+    this.location = data.location;
+    this.siteName = data.site_name;
+    this.workstation = data.workstation;
+    this.mailStop = data.mail_stop;
+    this.companyAddress = data.company_address;
+    this.propertyName = data.property_name;
+    this.propertyAddress = data.property_address;
+    this.buildingName = data.building_name;
+    this.storageUnit = data.storage_unit;
+    this.parkingAddress = data.parking_address;
+    this.barcodeData = data.barcode_data;
+    this.unitNumbers = data.unit_numbers || [];
+    // Each entry is { label, value }; label is a closed enum on the server.
+    this.parkingDetails = data.parking_details || [];
+    this.employeePhotoMetadata = data.employee_photo_metadata
+      ? new EmployeePhotoMetadata(data.employee_photo_metadata)
+      : null;
     this.createdAt = data.created_at;
     this.devices = data.devices || [];
     this.aliroAccessDataElements = data.aliro_access_data_elements
@@ -195,7 +227,7 @@ class BaseApi {
     this.accountId = accountId;
     this.secretKey = secretKey;
     this.baseUrl = baseUrl.replace(/\/$/, ""); // Remove trailing slash if present
-    this.version = "1.6.0-preview.5"; // Should come from package.json
+    this.version = "1.6.0-preview.6"; // Should come from package.json
   }
 
   async request(path, options = {}) {
@@ -464,6 +496,9 @@ class AccessCardsApi extends BaseApi {
       employeeId: "employee_id",
       fullName: "full_name",
       classification: "classification",
+      siteName: "site_name",
+      mailStop: "mail_stop",
+      companyAddress: "company_address",
       expirationDate: "expiration_date",
       employeePhoto: "employee_photo",
       title: "title",
@@ -1178,6 +1213,7 @@ export {
   DecryptError,
   InvalidEnvelopeError,
   AccessCard,
+  EmployeePhotoMetadata,
   Template,
   PassTemplatePair,
   TemplateInfo,

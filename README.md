@@ -74,6 +74,29 @@ console.log('Devices:', card.devices);
 console.log('Metadata:', card.metadata);
 ```
 
+`get()` and `update()` also return every field `update()` can write, so you can read back what you wrote. Each pass carries all of them; a field its template doesn't use comes back empty.
+
+```javascript
+card.classification;  card.department;       card.location;
+card.siteName;        card.workstation;      card.mailStop;
+card.companyAddress;  card.title;            card.employeeId;
+card.propertyName;    card.propertyAddress;  card.buildingName;
+card.storageUnit;     card.parkingAddress;   card.barcodeData;
+
+card.unitNumbers;     // string[], e.g. ['205', '206']
+card.parkingDetails;  // [{ label, value }], e.g. [{ label: 'Garage', value: 'Two' }]
+```
+
+`provision()` does not return these, so read the pass back if you need to confirm what was stored.
+
+An attached photo comes back as metadata rather than bytes, or `null` when there is none:
+
+```javascript
+card.employeePhotoMetadata;  // { checksum, contentType, byteSize } | null
+```
+
+The name is `employeePhotoMetadata` and not `employeePhoto` because `employeePhoto` is the base64 string you send on write. The image itself is never returned.
+
 #### List cards
 
 ```javascript
