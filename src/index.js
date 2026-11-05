@@ -227,7 +227,7 @@ class BaseApi {
     this.accountId = accountId;
     this.secretKey = secretKey;
     this.baseUrl = baseUrl.replace(/\/$/, ""); // Remove trailing slash if present
-    this.version = "1.6.0-preview.6"; // Should come from package.json
+    this.version = "1.6.0-preview.7"; // Should come from package.json
   }
 
   async request(path, options = {}) {
@@ -438,6 +438,10 @@ class AccessCardsApi extends BaseApi {
       parkingDetails: "parking_details",
       // Aliro
       aliroAccessDataElements: "aliro_access_data_elements",
+      // Freshness window of the signed access document, in seconds. Omit it
+      // and the server applies its own default. Issue-only: the server
+      // neither accepts it on update nor returns it on read.
+      aliroDocumentValiditySeconds: "aliro_document_validity_seconds",
     };
 
     // Add any params that exist to the request body

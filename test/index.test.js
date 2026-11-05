@@ -199,6 +199,30 @@ describe('aliro access data elements', () => {
     ]);
   });
 
+  test('sends aliroDocumentValiditySeconds on issue', async () => {
+    await client.accessCards.provision({
+      cardTemplateId: '0xd3adb00b5',
+      fullName: 'Employee name',
+      startDate: '2026-01-31T22:46:25.601Z',
+      expirationDate: '2026-04-30T22:46:25.601Z',
+      aliroAccessDataElements: elements,
+      aliroDocumentValiditySeconds: 3600
+    });
+
+    expect(bodyOf(fetch.mock.calls[0]).aliro_document_validity_seconds).toBe(3600);
+  });
+
+  test('omits the validity window when it is not given', async () => {
+    await client.accessCards.provision({
+      cardTemplateId: '0xd3adb00b5',
+      fullName: 'Employee name',
+      startDate: '2026-01-31T22:46:25.601Z',
+      expirationDate: '2026-04-30T22:46:25.601Z',
+      aliroAccessDataElements: elements
+    });
+
+    expect(bodyOf(fetch.mock.calls[0])).not.toHaveProperty('aliro_document_validity_seconds');
+  });
   test('update sends camelCase accessData as access_data on the wire', async () => {
     await client.accessCards.update({
       cardId: '0xc4rd1d',
