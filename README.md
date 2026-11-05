@@ -181,6 +181,23 @@ const card = await client.accessCards.get({ cardId: "0xc4rd1d" });
 card.aliroAccessDataElements[0].identifier; // "front-door"
 ```
 
+Pass `aliroDocumentValiditySeconds` to set how long each signed access document stays fresh before it is re-signed. It is a positive integer in seconds, and the server applies its own default when you omit it. This is a freshness window, not the pass lifetime: it never extends a pass past its `expirationDate`.
+
+```javascript
+const card = await client.accessCards.provision({
+  cardTemplateId,
+  fullName: "Employee Name",
+  startDate,
+  expirationDate,
+  aliroAccessDataElements: [
+    { identifier: "front-door", accessData: { "0": 1 } }
+  ],
+  aliroDocumentValiditySeconds: 86400
+});
+```
+
+It can only be set when the pass is issued. It is not accepted on `update()` and is not returned when you read a pass back.
+
 `update()` takes the same parameter, in either spelling, to replace the elements on an existing pass:
 
 ```javascript
