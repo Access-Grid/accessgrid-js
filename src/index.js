@@ -62,6 +62,8 @@ class Template {
       icon: data.images.icon,
       memberPhoto: data.images.member_photo,
     };
+    // Ids of the attached landing pages.
+    this.landingPages = data.landing_pages;
 
     // Convenience: derive allowOnMultipleDevices from allowed_device_counts
     if (this.allowedDeviceCounts) {
@@ -550,6 +552,7 @@ class ConsoleApi extends BaseApi {
       background: "background",
       icon: "icon",
       memberPhoto: "member_photo",
+      landingPages: "landing_pages",
       metadata: "metadata",
     };
 
