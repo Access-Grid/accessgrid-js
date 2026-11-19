@@ -164,6 +164,10 @@ const template = await client.console.createTemplate({
   supportEmail: "support@yourcompany.com",
   privacyPolicyUrl: "https://yourcompany.com/privacy",
   termsAndConditionsUrl: "https://yourcompany.com/terms",
+  logo: "[image_in_base64_encoded_format]",
+  background: "[image_in_base64_encoded_format]",
+  icon: "[image_in_base64_encoded_format]",
+  memberPhoto: "[image_in_base64_encoded_format]",
   metadata: {
     version: "2.1",
     approvalStatus: "approved"
@@ -172,6 +176,8 @@ const template = await client.console.createTemplate({
 
 console.log(`Template created successfully: ${template.id}`);
 ```
+
+Images are base64-encoded PNGs. Each is optional, and the same four fields work on update.
 
 #### Update a template
 
@@ -209,6 +215,12 @@ console.log(`Name: ${template.name}`);
 console.log(`Platform: ${template.platform}`);
 console.log(`Protocol: ${template.protocol}`);
 console.log(`Multi-device: ${template.allowOnMultipleDevices}`);
+
+// Image URLs; each is null when no image is attached
+console.log(`Logo: ${template.images.logo}`);
+console.log(`Background: ${template.images.backgroundImage}`);
+console.log(`Icon: ${template.images.icon}`);
+console.log(`Member photo: ${template.images.memberPhoto}`);
 ```
 
 #### Publish a template
