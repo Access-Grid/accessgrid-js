@@ -403,6 +403,42 @@ describe('AccessGrid SDK', () => {
         expect(callBody.terms_and_conditions_url).toBe('https://yourcompany.com/terms');
         expect(callBody.metadata).toEqual({ version: '2.1', approvalStatus: 'approved' });
       });
+
+      test('should send all four images in body', async () => {
+        global.fetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ id: 'template-123' })
+        });
+
+        await client.console.createTemplate({
+          ...mockTemplateParams,
+          logo: 'bG9nbw==',
+          background: 'YmFja2dyb3VuZA==',
+          icon: 'aWNvbg==',
+          memberPhoto: 'bWVtYmVy'
+        });
+
+        const callBody = JSON.parse(fetch.mock.calls[0][1].body);
+        expect(callBody.logo).toBe('bG9nbw==');
+        expect(callBody.background).toBe('YmFja2dyb3VuZA==');
+        expect(callBody.icon).toBe('aWNvbg==');
+        expect(callBody.member_photo).toBe('bWVtYmVy');
+      });
+
+      test('should send landing pages in body', async () => {
+        global.fetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ id: 'template-123' })
+        });
+
+        await client.console.createTemplate({
+          ...mockTemplateParams,
+          landingPages: ['lp-1', 'lp-2']
+        });
+
+        const callBody = JSON.parse(fetch.mock.calls[0][1].body);
+        expect(callBody.landing_pages).toEqual(['lp-1', 'lp-2']);
+      });
     });
 
     describe('updateTemplate', () => {
@@ -468,6 +504,57 @@ describe('AccessGrid SDK', () => {
         expect(callBody.metadata).toEqual({ version: '2.2', lastUpdatedBy: 'admin' });
       });
 
+      test('should send all four images in body', async () => {
+        global.fetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ id: mockTemplateId })
+        });
+
+        await client.console.updateTemplate({
+          cardTemplateId: mockTemplateId,
+          logo: 'bG9nbw==',
+          background: 'YmFja2dyb3VuZA==',
+          icon: 'aWNvbg==',
+          memberPhoto: 'bWVtYmVy'
+        });
+
+        const callBody = JSON.parse(fetch.mock.calls[0][1].body);
+        expect(callBody.logo).toBe('bG9nbw==');
+        expect(callBody.background).toBe('YmFja2dyb3VuZA==');
+        expect(callBody.icon).toBe('aWNvbg==');
+        expect(callBody.member_photo).toBe('bWVtYmVy');
+      });
+
+      test('should send landing pages in body', async () => {
+        global.fetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ id: mockTemplateId })
+        });
+
+        await client.console.updateTemplate({
+          cardTemplateId: mockTemplateId,
+          landingPages: ['lp-1']
+        });
+
+        const callBody = JSON.parse(fetch.mock.calls[0][1].body);
+        expect(callBody.landing_pages).toEqual(['lp-1']);
+      });
+
+      test('should send an empty landing pages array to clear them', async () => {
+        global.fetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ id: mockTemplateId })
+        });
+
+        await client.console.updateTemplate({
+          cardTemplateId: mockTemplateId,
+          landingPages: []
+        });
+
+        const callBody = JSON.parse(fetch.mock.calls[0][1].body);
+        expect(callBody.landing_pages).toEqual([]);
+      });
+
       test('should return a Template instance', async () => {
         global.fetch.mockResolvedValueOnce({
           ok: true,
@@ -504,6 +591,44 @@ describe('AccessGrid SDK', () => {
           })
         );
         expect(result).toBeInstanceOf(Template);
+      });
+
+      test('should map image URLs from the images hash', async () => {
+        global.fetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({
+            id: mockTemplateId,
+            images: {
+              logo: 'https://example.com/logo.png',
+              background_image: 'https://example.com/background.png',
+              icon: null,
+              member_photo: 'https://example.com/member.png'
+            }
+          })
+        });
+
+        const result = await client.console.readTemplate({ cardTemplateId: mockTemplateId });
+
+        expect(result.images).toEqual({
+          logo: 'https://example.com/logo.png',
+          backgroundImage: 'https://example.com/background.png',
+          icon: null,
+          memberPhoto: 'https://example.com/member.png'
+        });
+      });
+
+      test('should map landing pages', async () => {
+        global.fetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({
+            id: mockTemplateId,
+            landing_pages: ['lp-1', 'lp-2']
+          })
+        });
+
+        const result = await client.console.readTemplate({ cardTemplateId: mockTemplateId });
+
+        expect(result.landingPages).toEqual(['lp-1', 'lp-2']);
       });
     });
 

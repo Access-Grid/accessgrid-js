@@ -55,6 +55,15 @@ class Template {
     this.termsSettings = data.terms_settings;
     this.styleSettings = data.style_settings;
     this.metadata = data.metadata;
+    // Image URLs, each null when no image is attached. A template pair has none.
+    this.images = data.images && {
+      logo: data.images.logo,
+      backgroundImage: data.images.background_image,
+      icon: data.images.icon,
+      memberPhoto: data.images.member_photo,
+    };
+    // Ids of the attached landing pages.
+    this.landingPages = data.landing_pages;
 
     // Convenience: derive allowOnMultipleDevices from allowed_device_counts
     if (this.allowedDeviceCounts) {
@@ -173,7 +182,7 @@ class BaseApi {
     this.accountId = accountId;
     this.secretKey = secretKey;
     this.baseUrl = baseUrl.replace(/\/$/, ""); // Remove trailing slash if present
-    this.version = "1.5.0"; // Should come from package.json
+    this.version = "1.5.1"; // Should come from package.json
   }
 
   async request(path, options = {}) {
@@ -540,6 +549,10 @@ class ConsoleApi extends BaseApi {
       privacyPolicyUrl: "privacy_policy_url",
       termsAndConditionsUrl: "terms_and_conditions_url",
       logo: "logo",
+      background: "background",
+      icon: "icon",
+      memberPhoto: "member_photo",
+      landingPages: "landing_pages",
       metadata: "metadata",
     };
 
