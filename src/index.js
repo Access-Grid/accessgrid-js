@@ -236,7 +236,7 @@ class BaseApi {
     this.accountId = accountId;
     this.secretKey = secretKey;
     this.baseUrl = baseUrl.replace(/\/$/, ""); // Remove trailing slash if present
-    this.version = "1.6.0-preview.7"; // Should come from package.json
+    this.version = "1.6.0-preview.8"; // Should come from package.json
   }
 
   async request(path, options = {}) {
